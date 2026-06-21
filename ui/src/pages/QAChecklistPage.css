@@ -1,38 +1,38 @@
 :root {
-  /* Color Palette (Semantic & Base) */
-  --app-bg: #F9FAFB; /* Light Gray */
-  --surface: #FFFFFF; /* Pure White */
-  --text-primary: #111827; /* Dark Slate */
-  --text-secondary: #6B7280; /* Medium Gray */
-  --text-dim: #9CA3AF; /* Lighter Gray for dim text */
+  /* Color Palette (Semantic & Base mapped to global theme) */
+  --app-bg: var(--bg); /* Mapped to theme background */
+  --surface: var(--bg-surface); /* Mapped to theme surface */
+  --text-primary: var(--text); /* Mapped to theme text */
+  --text-secondary: var(--text-secondary); /* Mapped to theme secondary text */
+  --text-dim: var(--text-dim); /* Mapped to theme dim text */
 
-  --brand-accent: #4F46E5; /* Deep Indigo */
-  --brand-accent-dim: rgba(79, 70, 229, 0.1); /* 10% opacity of brand-accent */
+  --brand-accent: var(--blue); /* Mapped to theme blue */
+  --brand-accent-dim: var(--blue-dim);
 
-  --success: #10B981; /* Emerald Green */
-  --success-dim: rgba(16, 185, 129, 0.1);
+  --success: var(--green); /* Mapped to theme green */
+  --success-dim: var(--green-dim);
 
-  --danger: #E11D48; /* Rose Red */
-  --danger-dim: rgba(225, 29, 72, 0.1);
+  --danger: var(--red); /* Mapped to theme red */
+  --danger-dim: var(--red-dim);
 
-  --warning: #F59E0B; /* Amber */
-  --warning-dim: rgba(245, 158, 11, 0.1);
+  --warning: var(--yellow); /* Mapped to theme yellow */
+  --warning-dim: var(--yellow-dim);
 
-  --neutral: #94A3B8; /* Slate Gray */
+  --neutral: var(--text-muted); /* Mapped to theme text muted */
   --neutral-dim: rgba(148, 163, 184, 0.1);
 
   /* Borders */
-  --border: #E5E7EB; /* Subtle 1px border */
-  --border-light: #F3F4F6; /* Even lighter border for subtle separation */
+  --border: var(--border); /* Mapped to theme border */
+  --border-light: var(--border-light); /* Mapped to theme border light */
 
   /* General UI Variables (derived from palette) */
   --bg: var(--app-bg);
-  --bg-alt: var(--border-light); /* For subtle background variations */
+  --bg-alt: var(--border-light);
   --card: var(--surface);
-  --card-hover: #F9FAFB; /* Slightly darker than surface for hover */
+  --card-hover: var(--card-hover);
   --text: var(--text-primary);
 
-  /* Specific component colors (adjust as needed, but prefer semantic) */
+  /* Specific component colors */
   --blue: var(--brand-accent);
   --blue-dim: var(--brand-accent-dim);
   --green: var(--success);
@@ -41,7 +41,7 @@
   --red-dim: var(--danger-dim);
   --yellow: var(--warning);
   --yellow-dim: var(--warning-dim);
-  --purple: var(--brand-accent); /* Using brand accent for priority badge for now */
+  --purple: var(--brand-accent);
 }
 
 /* Base styles */
