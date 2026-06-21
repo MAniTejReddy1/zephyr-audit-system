@@ -1,0 +1,122 @@
+.qa-skeleton-container {
+  padding: 24px 40px;
+  background-color: var(--app-bg);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.qa-skeleton-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.qa-skeleton-header .qa-skeleton-line.short {
+  width: 30%;
+  height: 32px;
+}
+
+.qa-skeleton-header .qa-skeleton-line.medium {
+  width: 50%;
+  height: 18px;
+}
+
+.qa-skeleton-toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.qa-skeleton-toolbar .qa-skeleton-line.search {
+  width: 300px;
+  height: 38px;
+  border-radius: 6px;
+}
+
+.qa-skeleton-filter-group {
+  display: flex;
+  gap: 6px;
+}
+
+.qa-skeleton-filter-group .qa-skeleton-line.filter-btn {
+  width: 80px;
+  height: 36px;
+  border-radius: 6px;
+}
+
+.qa-skeleton-table {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.qa-skeleton-table-header {
+  display: flex;
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.qa-skeleton-table-header .qa-skeleton-line.header-cell {
+  flex: 1;
+  height: 44px; /* Matches table header height */
+  margin: 0;
+  border-right: 1px solid var(--border);
+}
+.qa-skeleton-table-header .qa-skeleton-line.header-cell:last-child {
+  border-right: none;
+}
+
+
+.qa-skeleton-table-row {
+  display: flex;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.qa-skeleton-table-row:last-child {
+  border-bottom: none;
+}
+
+.qa-skeleton-table-row .qa-skeleton-line.cell {
+  flex: 1;
+  height: 48px; /* Matches table row height */
+  margin: 0;
+  border-right: 1px solid var(--border-light);
+}
+.qa-skeleton-table-row .qa-skeleton-line.cell:last-child {
+  border-right: none;
+}
+
+
+.qa-skeleton-line {
+  background-color: var(--border); /* Monochromatic base */
+  animation: loading-flash 1.5s infinite ease-in-out;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+/* Adjust specific widths for cells to mimic content */
+.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(1) { width: 40px; flex: none; border-right: 1px solid var(--border-light); } /* Checkbox */
+.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(2) { width: 180px; flex: none; border-right: 1px solid var(--border-light); } /* Status */
+.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(3) { width: 30%; } /* Test Case */
+.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(4) { width: 20%; } /* Folder Scope */
+.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(5) { width: 15%; } /* Issues */
+.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(6) { width: 100px; flex: none; } /* Details */
+
+
+@keyframes loading-flash {
+  0% {
+    background-color: var(--border);
+  }
+  50% {
+    background-color: var(--border-light);
+  }
+  100% {
+    background-color: var(--border);
+  }
+}

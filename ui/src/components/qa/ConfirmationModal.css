@@ -1,0 +1,74 @@
+.qa-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0,0,0,0.4); /* Slightly lighter overlay */
+  backdrop-filter: blur(2px); /* Subtle blur */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000; /* Ensure it's above other modals/drawers */
+  animation: fadeIn 150ms ease-out; /* Fast and snappy */
+}
+
+.qa-modal-content {
+  background-color: var(--surface); /* Surface/Cards */
+  border: 1px solid var(--border); /* 1px border */
+  border-radius: 6px; /* Corner Radius */
+  padding: 32px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1); /* Subtle shadow */
+  animation: slideUp 200ms cubic-bezier(0.2, 0.8, 0.2, 1); /* Snappy easing */
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.qa-modal-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.qa-modal-message {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.qa-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.qa-modal-actions .qa-btn-primary,
+.qa-modal-actions .qa-btn-secondary {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.qa-modal-actions .qa-btn-primary {
+  /* Overridden by inline style for specific colors */
+  background-color: var(--brand-accent);
+  color: var(--surface);
+}
+
+.qa-modal-actions .qa-btn-primary:hover {
+  background-color: color-mix(in srgb, var(--brand-accent) 90%, black);
+}
+
+.qa-modal-actions .qa-btn-secondary {
+  background-color: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.qa-modal-actions .qa-btn-secondary:hover {
+  background-color: var(--card-hover);
+}

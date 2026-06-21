@@ -1,0 +1,10 @@
+asyncpg==0.31.0
+diff-match-patch==20241021
+fastapi==0.136.3
+httpx==0.28.1
+pandas==3.0.3
+psycopg2-binary==2.9.12
+python-dotenv==1.2.2
+SQLAlchemy==2.0.50
+streamlit==1.57.0
+uvicorn==0.48.0

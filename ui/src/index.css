@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Root reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: #080c10;
+  color: #cbd5e1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* ── Input / button reset ── */
+input, button {
+  font-family: inherit;
+}
+button {
+  cursor: pointer;
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(37,99,235,0.35);
+  color: #e2e8f0;
+}
+
+/* ── Safe Scroll Container for Diff Viewer ── */
+.diff-scroll-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.diff-scroll-wrapper table {
+  width: 100% !important;
+}
+
+/* ── Clean CSS Animations ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); opacity: .3; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
