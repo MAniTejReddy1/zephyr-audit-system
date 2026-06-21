@@ -133,3 +133,35 @@ class ReleaseCycleOut(ReleaseCycleBase):
     id: int
     created_at: datetime
     items: List[ChecklistItemOut] = []
+
+
+class TestCaseFullOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: Any
+    zephyr_key: str
+    project_key: str
+    name: str
+    status: str | None = None
+    priority: str | None = None
+    folder_id: int | None = None
+    folder_path: str | None = None
+    owner_account: str | None = None
+    owner_name: str | None = None
+    last_seen_at: datetime
+    created_in_db: datetime
+    is_deleted: bool
+    raw_snapshot: Optional[dict] = None
+    steps_json: Optional[list] = None
+
+
+class FolderWithCount(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    folder_id: int
+    name: str
+    full_path: str
+    parent_id: int | None = None
+    tribe: str | None = None
+    test_case_count: int
+

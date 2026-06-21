@@ -1,7 +1,7 @@
 import unittest
 
-from audit_utils import build_audit_snapshot, diff_changed_fields, hash_data, sanitize_for_storage
-from poller import classify_action
+from app.utils.audit import build_audit_snapshot, diff_changed_fields, hash_data, sanitize_for_storage
+from app.services.poller import classify_action
 
 
 class AuditUtilsTest(unittest.TestCase):

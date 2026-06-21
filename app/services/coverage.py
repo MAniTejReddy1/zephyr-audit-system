@@ -9,8 +9,8 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import get_settings
-from models import CoverageSnapshot, FolderMap, TestCaseState
+from app.config import get_settings
+from app.db.models import CoverageSnapshot, FolderMap, TestCaseState
 
 _settings = get_settings()
 

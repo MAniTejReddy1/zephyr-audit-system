@@ -14,11 +14,12 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import ProgrammingError
 
-from audit_utils import build_audit_snapshot, diff_changed_fields, extract_user, hash_data, get_meaningful_fields, _is_valid_display_name
-from config import get_settings
-from database import engine, Base, AsyncSessionLocal
-from models import AuditLog, TestCaseState, UserDirectory, FolderMap, SyncRun, CoverageSnapshot
-from coverage_snapshots import record_inventory_snapshot
+from app.utils.audit import build_audit_snapshot, diff_changed_fields, extract_user, hash_data, get_meaningful_fields, _is_valid_display_name
+from app.config import get_settings
+from app.db.session import engine, AsyncSessionLocal
+from app.db.base import Base
+from app.db.models import AuditLog, TestCaseState, UserDirectory, FolderMap, SyncRun, CoverageSnapshot
+from app.services.coverage import record_inventory_snapshot
 
 settings = get_settings()
 CURRENT_SYNC_RUN_ID = None

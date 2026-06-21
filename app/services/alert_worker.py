@@ -6,9 +6,9 @@ from typing import Any
 import httpx
 from sqlalchemy import select, update
 
-from config import get_settings
-from database import AsyncSessionLocal
-from models import AuditLog
+from app.config import get_settings
+from app.db.session import AsyncSessionLocal
+from app.db.models import AuditLog
 
 settings = get_settings()
 logger = logging.getLogger("zephyr_audit.alert_worker")

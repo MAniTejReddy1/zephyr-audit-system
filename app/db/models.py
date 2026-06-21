@@ -5,7 +5,7 @@ from sqlalchemy import Column, String, Integer, Boolean, DateTime, Index, Text, 
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from database import Base
+from app.db.base import Base
 
 def utc_now():
     return datetime.now(timezone.utc)

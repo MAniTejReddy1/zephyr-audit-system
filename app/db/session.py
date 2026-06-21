@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
-from config import get_settings
+from app.config import get_settings
+from app.db.base import Base
 
 settings = get_settings()
 DATABASE_URL = settings.database_url
@@ -14,8 +14,6 @@ AsyncSessionLocal = async_sessionmaker(
     class_=AsyncSession, 
     expire_on_commit=False
 )
-
-Base = declarative_base()
 
 # Dependency injector / Context Manager for DB sessions
 async def get_db():
