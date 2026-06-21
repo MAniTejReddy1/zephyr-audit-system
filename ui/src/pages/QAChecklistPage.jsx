@@ -443,7 +443,7 @@ const QAChecklistPage = () => {
         selectedItems={selectedItems}
         setBulkDropOpen={setBulkDropOpen}
         bulkDropOpen={bulkDropOpen}
-        setDropK={dropK}
+        setDropK={setDropK}
         dropK={dropK}
         updateBulkItems={updateBulkItems}
         toggleSelectAll={toggleSelectAll}
