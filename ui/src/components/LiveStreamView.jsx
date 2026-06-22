@@ -3,7 +3,7 @@ import {
   Search, X, SlidersHorizontal, ChevronUp, ChevronDown, ChevronLeft,
   Target, Activity, GitBranch, User, Folder, Calendar, Clock,
   GitCommit, FolderOpen, Move, ArrowRight, ChevronRight, ListChecks,
-  FileText, Sparkles, AlertTriangle, RefreshCw, Trash2
+  FileText, Sparkles, AlertTriangle, RefreshCw, Trash2, CheckCircle2
 } from 'lucide-react';
 
 import { T, useSessionState, actionConfig, isScopeReturn, POLLS_PAGE_SIZE, displayActionKey } from '../theme';

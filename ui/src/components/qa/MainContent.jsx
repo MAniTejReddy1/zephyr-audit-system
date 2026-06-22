@@ -151,7 +151,30 @@ const MainContent = ({
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [assignDropK, setAssignDropK] = useState(null); // State for individual assignment dropdown
   const [platformDropK, setPlatformDropK] = useState(null); // State for individual platform dropdown
-  const [isScrolled, setIsScrolled] = useState(false);
+  const mainContainerRef = useRef(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 100;
+  const [localSearch, setLocalSearch] = useState(searchQ);
+
+  // Reset currentPage when cycle, search, or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeCycle?.id, searchQ, activeFilter, activeModuleFilter, activeTagFilter]);
+
+  // Sync localSearch state with searchQ prop if searchQ is cleared/updated externally
+  useEffect(() => {
+    setLocalSearch(searchQ);
+  }, [searchQ]);
+
+  // Debounce searchQ updates
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localSearch !== searchQ) {
+        setSearchQ(localSearch);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [localSearch, searchQ, setSearchQ]);
 
   const cyclePlatformsList = useMemo(() => {
     if (!activeCycle || !activeCycle.items) return [];
@@ -253,14 +276,7 @@ const MainContent = ({
     setBulkDropOpen(false);
   }, [selectedItems, filteredItems, activeCycle, STATUS_LABELS]);
 
-  const handleScroll = useCallback((e) => {
-    const scrollableDistance = e.target.scrollHeight - e.target.clientHeight;
-    if (scrollableDistance > 150) {
-      setIsScrolled(e.target.scrollTop > 40);
-    } else {
-      setIsScrolled(false);
-    }
-  }, []);
+
 
   const availableModules = useMemo(() => {
     if (!activeCycle || !activeCycle.items) return [];
@@ -470,6 +486,33 @@ const MainContent = ({
     // Sort groups alphabetically
     return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [filteredItems]);
+
+  const tableRows = useMemo(() => {
+    const rows = [];
+    groupedItems.forEach(([moduleName, itemsInGroup]) => {
+      rows.push({ type: 'header', moduleName, itemsInGroup });
+      const isCollapsed = collapsedGroups.has(moduleName);
+      if (!isCollapsed) {
+        itemsInGroup.forEach(item => {
+          rows.push({ type: 'item', item, moduleName });
+        });
+      }
+    });
+    return rows;
+  }, [groupedItems, collapsedGroups]);
+
+  const totalPages = Math.ceil(tableRows.length / itemsPerPage);
+
+  useEffect(() => {
+    if (mainContainerRef.current) {
+      mainContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [currentPage]);
+
+  const visibleRows = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return tableRows.slice(start, start + itemsPerPage);
+  }, [tableRows, currentPage, itemsPerPage]);
 
 
   const toggleGroupExpand = useCallback((testCaseName) => {
@@ -986,14 +1029,14 @@ const MainContent = ({
   const isDrawerOpen = !!selectedItemForDrawer;
 
   return (
-    <div className={`qa-main ${isDrawerOpen ? 'qa-drawer-open' : ''} ${isScrolled ? 'qa-header-minimized' : ''}`}>
+    <div ref={mainContainerRef} className={`qa-main ${isDrawerOpen ? 'qa-drawer-open' : ''}`}>
       {/* Header & Stats */}
       <div className="qa-main-header">
         {/* Top Title Bar */}
         <div className="qa-header-title-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div className="qa-header-title-container" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <h1 style={{ fontSize: isScrolled ? 18 : 28, fontWeight: 800, margin: 0, color: 'var(--text-primary)', letterSpacing: '-0.02em', transition: 'font-size 0.2s' }}>{activeCycle.name}</h1>
+              <h1 className="qa-header-title" style={{ fontWeight: 800, margin: 0, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{activeCycle.name}</h1>
               <span className="qa-cycle-status-badge active">{activeCycle.status || 'Active'}</span>
               {cyclePlatformsList.map(plat => (
                 <span key={plat} className="qa-platform-badge" style={{ fontSize: '10px', padding: '3px 8px', borderRadius: '12px' }}>
@@ -1001,7 +1044,7 @@ const MainContent = ({
                 </span>
               ))}
             </div>
-            <div className={`qa-collapsible-header-section ${isScrolled ? 'collapsed' : ''}`}>
+            <div className="qa-collapsible-header-section">
               <div className="qa-header-meta-row" style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, marginTop: 8 }}>
                 <span style={{display: 'flex', alignItems: 'center', gap: 6}}><Calendar size={13}/> Created {new Date(activeCycle.created_at).toLocaleDateString()}</span>
                 <span>•</span>
@@ -1036,7 +1079,7 @@ const MainContent = ({
         </div>
 
         {/* KPI Grid */}
-        <div className={`qa-collapsible-header-section ${isScrolled ? 'collapsed' : ''}`}>
+        <div className="qa-collapsible-header-section">
           <div className="qa-dashboard-grid">
             <div className="qa-kpi-card-new" style={pctPass === 0 ? { opacity: 0.6 } : {}}>
               <div className="qa-kpi-header">
@@ -1081,7 +1124,7 @@ const MainContent = ({
 
         {/* Progress Breakdown bar */}
         {stats.total > 0 && (
-          <div className={`qa-collapsible-header-section ${isScrolled ? 'collapsed' : ''}`}>
+          <div className="qa-collapsible-header-section">
             <div style={{ marginTop: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 <span>Execution Progress</span>
@@ -1127,11 +1170,11 @@ const MainContent = ({
               type="text"
               className="qa-search-input"
               placeholder="Search test cases or bug IDs..."
-              value={searchQ}
-              onChange={e => setSearchQ(e.target.value)}
+              value={localSearch}
+              onChange={e => setLocalSearch(e.target.value)}
             />
-            {searchQ && (
-              <button onClick={() => setSearchQ('')} style={{position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer'}}>
+            {localSearch && (
+              <button onClick={() => { setLocalSearch(''); setSearchQ(''); }} style={{position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer'}}>
                 <X size={14}/>
               </button>
             )}
@@ -1262,283 +1305,336 @@ const MainContent = ({
           )}
         </div>
 
-      {/* Table */}
-      <div onScroll={handleScroll} className="qa-table-container">
-        <table className="qa-table">
-          <thead>
-            <tr>
-              <th style={{ width: 40, textAlign: 'center' }}>
-                <button onClick={toggleSelectAll} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: selectedItems.size > 0 ? 'var(--brand-accent)' : 'var(--text-secondary)' }}>
-                  {selectedItems.size > 0 ? (
-                    selectedItems.size === filteredItems.length ? <CheckSquare size={16} /> : <MinusCircle size={16} />
-                  ) : <Square size={16} />}
-                </button>
-              </th>
-              <th>Checklist Item</th>
-              <th style={{ width: isDrawerOpen ? 200 : 220 }}>Platform / Status</th>
-              {!isDrawerOpen && <th style={{ width: 150 }}>Assigned To</th>}
-              {!isDrawerOpen && <th>Issues</th>}
-              {!isDrawerOpen && <th style={{ width: 100, textAlign: 'center' }}>Details</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {groupedItems.map(([moduleName, itemsInGroup]) => {
-              const groupTotal = itemsInGroup.length;
-              const groupDone = itemsInGroup.filter(i => i.status !== 'pending').length;
-              const groupPass = itemsInGroup.filter(i => i.status === 'pass' || i.status === 'pass_flaky').length;
-              const groupFail = itemsInGroup.filter(i => i.status === 'fail').length;
-              const groupBlocked = itemsInGroup.filter(i => i.status === 'blocked').length;
-              const groupPct = groupTotal === 0 ? 0 : Math.round((groupPass / groupTotal) * 100);
-              const isCollapsed = collapsedGroups.has(moduleName);
-              return (
-              <React.Fragment key={moduleName}>
-                <tr className="qa-table-group-header" onClick={() => toggleGroupExpand(moduleName)}>
-                  <td colSpan="2">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', transition: 'transform 0.2s', transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
-                        <ChevronDown size={15} />
-                      </span>
-                      <Folder size={14} color="var(--warning)" />
-                      <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '12px' }}>{moduleName}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, backgroundColor: 'var(--border-light)', color: 'var(--text-secondary)' }}>
-                        {groupDone}/{groupTotal}
-                      </span>
-                      {groupFail > 0 && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, backgroundColor: 'var(--danger-dim)', color: 'var(--danger)', fontWeight: 700 }}>{groupFail} fail</span>}
-                      {groupBlocked > 0 && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, backgroundColor: 'var(--warning-dim)', color: 'var(--warning)', fontWeight: 700 }}>{groupBlocked} blocked</span>}
-                    </div>
-                  </td>
-                  <td colSpan={isDrawerOpen ? "1" : "4"}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: 'var(--border)', overflow: 'hidden', maxWidth: 160 }}>
-                        <div style={{ height: '100%', width: `${groupPct}%`, borderRadius: 2, backgroundColor: groupPct === 100 ? 'var(--success)' : groupFail > 0 ? 'var(--danger)' : 'var(--brand-accent)', transition: 'width 0.5s ease' }} />
+      {/* Table (CSS Grid Layout) */}
+      <div className="qa-table-container">
+        <div className="qa-table">
+          <div className={`qa-table-header ${isDrawerOpen ? 'drawer-open' : 'drawer-closed'}`}>
+            <div className="qa-table-header-cell" style={{ display: 'flex', justifyContent: 'center' }}>
+              <button onClick={toggleSelectAll} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: selectedItems.size > 0 ? 'var(--brand-accent)' : 'var(--text-secondary)' }}>
+                {selectedItems.size > 0 ? (
+                  selectedItems.size === filteredItems.length ? <CheckSquare size={16} /> : <MinusCircle size={16} />
+                ) : <Square size={16} />}
+              </button>
+            </div>
+            <div className="qa-table-header-cell">Checklist Item</div>
+            <div className="qa-table-header-cell">Platform / Status</div>
+            {!isDrawerOpen && <div className="qa-table-header-cell">Assigned To</div>}
+            {!isDrawerOpen && <div className="qa-table-header-cell">Issues</div>}
+            {!isDrawerOpen && <div className="qa-table-header-cell" style={{ display: 'flex', justifyContent: 'center' }}>Details</div>}
+          </div>
+          <div className="qa-table-body">
+            {visibleRows.map((row) => {
+              if (row.type === 'header') {
+                const { moduleName, itemsInGroup } = row;
+                const groupTotal = itemsInGroup.length;
+                const groupDone = itemsInGroup.filter(i => i.status !== 'pending').length;
+                const groupPass = itemsInGroup.filter(i => i.status === 'pass' || i.status === 'pass_flaky').length;
+                const groupFail = itemsInGroup.filter(i => i.status === 'fail').length;
+                const groupBlocked = itemsInGroup.filter(i => i.status === 'blocked').length;
+                const groupPct = groupTotal === 0 ? 0 : Math.round((groupPass / groupTotal) * 100);
+                return (
+                  <div key={`header-${moduleName}`} className="qa-table-group-header" onClick={() => toggleGroupExpand(moduleName)}>
+                    <div className="qa-table-group-header-left">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-secondary)', transition: 'transform 0.2s', transform: collapsedGroups.has(moduleName) ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
+                          <ChevronDown size={15} />
+                        </span>
+                        <Folder size={14} color="var(--warning)" />
+                        <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '12px' }}>{moduleName}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, backgroundColor: 'var(--border-light)', color: 'var(--text-secondary)' }}>
+                          {groupDone}/{groupTotal}
+                        </span>
+                        {groupFail > 0 && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, backgroundColor: 'var(--danger-dim)', color: 'var(--danger)', fontWeight: 700 }}>{groupFail} fail</span>}
+                        {groupBlocked > 0 && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, backgroundColor: 'var(--warning-dim)', color: 'var(--warning)', fontWeight: 700 }}>{groupBlocked} blocked</span>}
                       </div>
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 }}>{groupPct}% pass</span>
                     </div>
-                  </td>
-                </tr>
- 
-                {!isCollapsed && itemsInGroup.map(item => {
-                  const isSelected = selectedItems.has(item.id);
-                  const needsAttention = (item.status === 'fail' || item.status === 'blocked') && !item.bug_id;
-                  const isPending = item.status === 'pending';
-                  const isFlashing = itemToFlashId === item.id;
-                  const checklistLabel = item.checklist_label || item.test_case?.name || 'Untitled checklist item';
-                  const isActive = selectedItemForDrawer?.id === item.id;
-                  const isAnyDropOpen = dropK === item.id || assignDropK === item.id || platformDropK === item.id;
+                    <div className="qa-table-group-header-right">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ flex: 1, width: 160, height: 4, borderRadius: 2, backgroundColor: 'var(--border)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${groupPct}%`, borderRadius: 2, backgroundColor: groupPct === 100 ? 'var(--success)' : groupFail > 0 ? 'var(--danger)' : 'var(--brand-accent)', transition: 'width 0.5s ease' }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 }}>{groupPct}% pass</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
 
-                  return (
-                    <tr
-                      key={item.id}
-                      onClick={() => openDetailsDrawer(item)}
-                      className={`qa-table-sub-row ${isFlashing ? 'qa-flash-success' : ''} ${isActive ? 'qa-row-active' : ''}`}
-                      style={{ 
-                        backgroundColor: isSelected ? 'var(--card)' : 'transparent', 
-                        boxShadow: isSelected ? 'inset 2px 0 0 var(--brand-accent)' : 'none',
-                        position: isAnyDropOpen ? 'relative' : undefined,
-                        zIndex: isAnyDropOpen ? 50 : undefined
-                      }}
-                    >
-                      <td style={{ textAlign: 'center' }} onClick={(e) => toggleSelect(item.id, e)}>
-                        <button style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSelected ? 'var(--brand-accent)' : 'var(--text-secondary)' }}>
-                          {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+              // Row is an item
+              const { item } = row;
+              const isSelected = selectedItems.has(item.id);
+              const needsAttention = (item.status === 'fail' || item.status === 'blocked') && !item.bug_id;
+              const isPending = item.status === 'pending';
+              const isFlashing = itemToFlashId === item.id;
+              const checklistLabel = item.checklist_label || item.test_case?.name || 'Untitled checklist item';
+              const isActive = selectedItemForDrawer?.id === item.id;
+              const isAnyDropOpen = dropK === item.id || assignDropK === item.id || platformDropK === item.id;
+
+              return (
+                <div
+                  key={`item-${item.id}`}
+                  onClick={() => openDetailsDrawer(item)}
+                  className={`qa-table-sub-row ${isFlashing ? 'qa-flash-success' : ''} ${isActive ? 'qa-row-active' : ''} ${isDrawerOpen ? 'drawer-open' : 'drawer-closed'}`}
+                  style={{ 
+                    backgroundColor: isSelected ? 'var(--card)' : 'transparent', 
+                    boxShadow: isSelected ? 'inset 2px 0 0 var(--brand-accent)' : 'none',
+                    position: isAnyDropOpen ? 'relative' : undefined,
+                    zIndex: isAnyDropOpen ? 50 : undefined
+                  }}
+                >
+                  <div className="qa-table-cell" style={{ display: 'flex', justifyContent: 'center' }} onClick={(e) => toggleSelect(item.id, e)}>
+                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSelected ? 'var(--brand-accent)' : 'var(--text-secondary)' }}>
+                      {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                    </button>
+                  </div>
+                  <div className="qa-table-cell">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                        {checklistLabel}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span style={{ color: 'var(--brand-accent)', fontSize: 10, backgroundColor: 'var(--brand-accent-dim)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, width: 'fit-content' }}>
+                          {item.test_case?.zephyr_key}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="qa-table-cell">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDropK(dropK === item.id ? null : item.id); setBulkDropOpen(false); setAssignDropK(null); setPlatformDropK(null); }}
+                          className="qa-status-btn"
+                          style={{
+                            border: `1px solid ${isPending ? 'var(--border)' : STATUS_COLORS[item.status]}`,
+                            backgroundColor: isPending ? 'var(--border-light)' : `${STATUS_COLORS[item.status]}15`,
+                            color: isPending ? 'var(--text-secondary)' : STATUS_COLORS[item.status],
+                            width: '100%',
+                          }}
+                        >
+                          <div style={{display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                            {STATUS_ICONS[item.status]} <span style={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{STATUS_LABELS[item.status]}</span>
+                          </div>
+                          <ChevronDown size={12} style={{opacity: 0.5, flexShrink: 0}}/>
                         </button>
-                      </td>
-                      {/* Checklist Item column: clean label + zephyr key badge + indicators */}
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <span style={{ fontSize: '11.5px', fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.3 }}>
-                            {checklistLabel}
+                        
+                        {dropK === item.id && (
+                          <div className="qa-status-dropdown">
+                            <div className="qa-dropdown-group-title">Outcome States</div>
+                            {['pass', 'pass_flaky', 'fail'].map(s => (
+                              <div key={s}
+                                className="qa-status-option"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if(item.status !== s) updateItem(item.id, { status: s });
+                                  setDropK(null);
+                                }}
+                              >
+                                <span style={{ color: STATUS_COLORS[s], display: 'flex' }}>{STATUS_ICONS[s] || <MinusCircle size={14}/>}</span>
+                                <span style={{fontWeight: 500}}>{STATUS_LABELS[s]}</span>
+                              </div>
+                            ))}
+                            
+                            <div className="qa-dropdown-divider" />
+                            
+                            <div className="qa-dropdown-group-title">Process States</div>
+                            {['hold', 'blocked', 'skip', 'na'].map(s => (
+                              <div key={s}
+                                className="qa-status-option"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if(item.status !== s) updateItem(item.id, { status: s });
+                                  setDropK(null);
+                                }}
+                              >
+                                <span style={{ color: STATUS_COLORS[s], display: 'flex' }}>{STATUS_ICONS[s] || <MinusCircle size={14}/>}</span>
+                                <span style={{fontWeight: 500}}>{STATUS_LABELS[s]}</span>
+                              </div>
+                            ))}
+                            
+                            <div className="qa-dropdown-divider" />
+                            <div
+                              className="qa-status-option reset"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateItem(item.id, { status: 'pending' });
+                                setDropK(null);
+                              }}
+                              style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}
+                            >
+                              <span style={{ display: 'flex' }}><MinusCircle size={14}/></span>
+                              <span>Clear / Reset</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); updateItem(item.id, { status: 'pass' }); }}
+                          className="qa-quick-status-btn pass"
+                          title="Quick Pass"
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 24, height: 24, borderRadius: '50%',
+                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                            backgroundColor: item.status === 'pass' ? 'var(--success)' : 'rgba(16, 185, 129, 0.05)',
+                            color: item.status === 'pass' ? '#fff' : 'var(--success)',
+                            cursor: 'pointer',
+                            transition: 'all 150ms ease'
+                          }}
+                        >
+                          <CheckSquare size={13} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); updateItem(item.id, { status: 'fail' }); }}
+                          className="qa-quick-status-btn fail"
+                          title="Quick Fail"
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 24, height: 24, borderRadius: '50%',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            backgroundColor: item.status === 'fail' ? 'var(--danger)' : 'rgba(239, 68, 68, 0.05)',
+                            color: item.status === 'fail' ? '#fff' : 'var(--danger)',
+                            cursor: 'pointer',
+                            transition: 'all 150ms ease'
+                          }}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {!isDrawerOpen && (
+                    <div className="qa-table-cell">
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setAssignDropK(assignDropK === item.id ? null : item.id); setDropK(null); setPlatformDropK(null); setBulkDropOpen(false); }}
+                          className="qa-assign-btn"
+                        >
+                          <User size={14} /> {item.assigned_to ? item.assigned_to : <span className="qa-empty-placeholder">Unassigned</span>} <ChevronDown size={14} style={{opacity: 0.5}}/>
+                        </button>
+                        {assignDropK === item.id && (
+                          <div className="qa-status-dropdown" style={{ left: 0, right: 'auto' }}>
+                            <div className="qa-status-option" onClick={(e) => { e.stopPropagation(); updateItem(item.id, { assigned_to: null }); setAssignDropK(null); }}>
+                              <User size={14} /> Unassign
+                            </div>
+                            {availableTesters.map(tester => (
+                              <div key={tester.id} className="qa-status-option" onClick={(e) => { e.stopPropagation(); updateItem(item.id, { assigned_to: tester.name }); setAssignDropK(null); }}>
+                                <User size={14} /> {tester.name}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {!isDrawerOpen && (
+                    <div className="qa-table-cell">
+                      {item.bug_id ? (
+                        <div style={{display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start'}}>
+                          <span style={{ color: 'var(--danger)', fontSize: '11px', fontWeight: 700, backgroundColor: 'var(--danger-dim)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--danger)', display: 'inline-block' }}>
+                            {item.bug_id}
                           </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <span style={{ color: 'var(--brand-accent)', fontSize: 10, backgroundColor: 'var(--brand-accent-dim)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, width: 'fit-content' }}>
-                              {item.test_case?.zephyr_key}
-                            </span>
-                            {item.precondition_present && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--warning)', fontSize: 10, backgroundColor: 'var(--warning-dim)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, width: 'fit-content' }}>
-                                <AlertCircle size={10} /> Prereq
-                              </span>
-                            )}
-                            {item.verification_point_count > 0 && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--brand-accent)', fontSize: 10, backgroundColor: 'var(--brand-accent-dim)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600, width: 'fit-content' }}>
-                                <ListChecks size={10} /> {item.verification_point_count} {item.verification_point_count === 1 ? 'step' : 'steps'}
-                              </span>
-                            )}
-                          </div>
+                          <JiraStatus issueKey={item.bug_id} />
                         </div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{ position: 'relative', flex: 1 }}>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setDropK(dropK === item.id ? null : item.id); setBulkDropOpen(false); setAssignDropK(null); setPlatformDropK(null); }}
-                              className="qa-status-btn"
-                              style={{
-                                border: `1px solid ${isPending ? 'var(--border)' : STATUS_COLORS[item.status]}`,
-                                backgroundColor: isPending ? 'var(--border-light)' : `${STATUS_COLORS[item.status]}15`,
-                                color: isPending ? 'var(--text-secondary)' : STATUS_COLORS[item.status],
-                                width: '100%',
-                              }}
-                            >
-                              <div style={{display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
-                                {STATUS_ICONS[item.status]} <span style={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{STATUS_LABELS[item.status]}</span>
-                              </div>
-                              <ChevronDown size={12} style={{opacity: 0.5, flexShrink: 0}}/>
-                            </button>
- 
-                            {dropK === item.id && (
-                              <div className="qa-status-dropdown">
-                                <div className="qa-dropdown-group-title">Outcome States</div>
-                                {['pass', 'pass_flaky', 'fail'].map(s => (
-                                  <div key={s}
-                                    className="qa-status-option"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if(item.status !== s) updateItem(item.id, { status: s });
-                                      setDropK(null);
-                                    }}
-                                  >
-                                    <span style={{ color: STATUS_COLORS[s], display: 'flex' }}>{STATUS_ICONS[s] || <MinusCircle size={14}/>}</span>
-                                    <span style={{fontWeight: 500}}>{STATUS_LABELS[s]}</span>
-                                  </div>
-                                ))}
-                                
-                                <div className="qa-dropdown-divider" />
-                                
-                                <div className="qa-dropdown-group-title">Process States</div>
-                                {['hold', 'blocked', 'skip', 'na'].map(s => (
-                                  <div key={s}
-                                    className="qa-status-option"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if(item.status !== s) updateItem(item.id, { status: s });
-                                      setDropK(null);
-                                    }}
-                                  >
-                                    <span style={{ color: STATUS_COLORS[s], display: 'flex' }}>{STATUS_ICONS[s] || <MinusCircle size={14}/>}</span>
-                                    <span style={{fontWeight: 500}}>{STATUS_LABELS[s]}</span>
-                                  </div>
-                                ))}
-                                
-                                <div className="qa-dropdown-divider" />
-                                <div
-                                  className="qa-status-option reset"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    updateItem(item.id, { status: 'pending' });
-                                    setDropK(null);
-                                  }}
-                                  style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}
-                                >
-                                  <span style={{ display: 'flex' }}><MinusCircle size={14}/></span>
-                                  <span>Clear / Reset</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Quick status shortcut buttons */}
-                          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); updateItem(item.id, { status: 'pass' }); }}
-                              className="qa-quick-status-btn pass"
-                              title="Quick Pass"
-                              style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                width: 24, height: 24, borderRadius: '50%',
-                                border: '1px solid rgba(16, 185, 129, 0.2)',
-                                backgroundColor: item.status === 'pass' ? 'var(--success)' : 'rgba(16, 185, 129, 0.05)',
-                                color: item.status === 'pass' ? '#fff' : 'var(--success)',
-                                cursor: 'pointer',
-                                transition: 'all 150ms ease'
-                              }}
-                            >
-                              <CheckSquare size={13} />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); updateItem(item.id, { status: 'fail' }); }}
-                              className="qa-quick-status-btn fail"
-                              title="Quick Fail"
-                              style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                width: 24, height: 24, borderRadius: '50%',
-                                border: '1px solid rgba(239, 68, 68, 0.2)',
-                                backgroundColor: item.status === 'fail' ? 'var(--danger)' : 'rgba(239, 68, 68, 0.05)',
-                                color: item.status === 'fail' ? '#fff' : 'var(--danger)',
-                                cursor: 'pointer',
-                                transition: 'all 150ms ease'
-                              }}
-                            >
-                              <X size={13} />
-                            </button>
-                          </div>
+                      ) : needsAttention ? (
+                        <span style={{ color: 'var(--warning)', fontSize: '11px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, backgroundColor: 'var(--warning-dim)', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--warning)' }}>
+                          <AlertTriangle size={14}/> Needs Bug ID
+                        </span>
+                      ) : <span className="qa-empty-placeholder">—</span>}
+                    </div>
+                  )}
+
+                  {!isDrawerOpen && (
+                    <div className="qa-table-cell" style={{ display: 'flex', justifyContent: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '8px', backgroundColor: item.notes ? 'var(--brand-accent-dim)' : 'transparent', color: item.notes ? 'var(--brand-accent)' : 'var(--text-secondary)' }}>
+                          <FileText size={16} />
+                          {item.notes && <span style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, backgroundColor: 'var(--brand-accent)', borderRadius: '50%', border: '2px solid var(--surface)' }}></span>}
                         </div>
-                      </td>
- 
- 
-                      {!isDrawerOpen && (
-                        <td> {/* Assigned To column */}
-                          <div style={{ position: 'relative' }}>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setAssignDropK(assignDropK === item.id ? null : item.id); setDropK(null); setPlatformDropK(null); setBulkDropOpen(false); }}
-                              className="qa-assign-btn"
-                            >
-                              <User size={14} /> {item.assigned_to ? item.assigned_to : <span className="qa-empty-placeholder">Unassigned</span>} <ChevronDown size={14} style={{opacity: 0.5}}/>
-                            </button>
-                            {assignDropK === item.id && (
-                              <div className="qa-status-dropdown" style={{ left: 0, right: 'auto' }}>
-                                <div className="qa-status-option" onClick={(e) => { e.stopPropagation(); updateItem(item.id, { assigned_to: null }); setAssignDropK(null); }}>
-                                  <User size={14} /> Unassign
-                                </div>
-                                {availableTesters.map(tester => (
-                                  <div key={tester.id} className="qa-status-option" onClick={(e) => { e.stopPropagation(); updateItem(item.id, { assigned_to: tester.name }); setAssignDropK(null); }}>
-                                    <User size={14} /> {tester.name}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      )}
- 
-                      {!isDrawerOpen && (
-                        <td>
-                          {item.bug_id ? (
-                            <div style={{display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start'}}>
-                              <span style={{ color: 'var(--danger)', fontSize: '11px', fontWeight: 700, backgroundColor: 'var(--danger-dim)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--danger)', display: 'inline-block' }}>
-                                {item.bug_id}
-                              </span>
-                              <JiraStatus issueKey={item.bug_id} />
-                            </div>
-                          ) : needsAttention ? (
-                            <span style={{ color: 'var(--warning)', fontSize: '11px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, backgroundColor: 'var(--warning-dim)', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--warning)' }}>
-                              <AlertTriangle size={14}/> Needs Bug ID
-                            </span>
-                          ) : <span className="qa-empty-placeholder">—</span>}
-                        </td>
-                      )}
- 
-                      {!isDrawerOpen && (
-                        <td style={{ textAlign: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: '8px', backgroundColor: item.notes ? 'var(--brand-accent-dim)' : 'transparent', color: item.notes ? 'var(--brand-accent)' : 'var(--text-secondary)' }}>
-                              <FileText size={16} />
-                              {item.notes && <span style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, backgroundColor: 'var(--brand-accent)', borderRadius: '50%', border: '2px solid var(--surface)' }}></span>}
-                            </div>
-                            <div style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', borderRadius: '6px', transition: 'all 0.2s' }}>
-                              <ChevronDown size={16} color="var(--text-secondary)"/>
-                            </div>
-                          </div>
-                        </td>
-                      )}
- 
-                    </tr>
-                  );
-                })}
-              </React.Fragment>
+                        <div style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', borderRadius: '6px', transition: 'all 0.2s' }}>
+                          <ChevronDown size={16} color="var(--text-secondary)"/>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
-          </tbody>
-        </table>
+            
+            {tableRows.length > 0 && (
+              <div className="qa-pagination-controls" style={{ 
+                position: 'sticky', 
+                bottom: 0, 
+                zIndex: 20, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                padding: '12px 24px', 
+                borderTop: '1px solid var(--border)', 
+                backgroundColor: 'var(--surface)',
+                boxShadow: '0 -4px 12px rgba(0,0,0,0.1)' 
+              }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, tableRows.length)} of {tableRows.length} rows
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="qa-btn-secondary"
+                    style={{ padding: '6px 12px', opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                  >
+                    Previous
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = idx + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = idx + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + idx;
+                      } else {
+                        pageNum = currentPage - 2 + idx;
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          style={{
+                            width: '32px', height: '32px', borderRadius: '6px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            border: pageNum === currentPage ? '1px solid var(--brand-accent)' : '1px solid transparent',
+                            backgroundColor: pageNum === currentPage ? 'var(--brand-accent-dim)' : 'transparent',
+                            color: pageNum === currentPage ? 'var(--brand-accent)' : 'var(--text-secondary)',
+                            fontWeight: pageNum === currentPage ? 700 : 500,
+                            cursor: 'pointer', fontSize: '13px', transition: 'all 0.2s'
+                          }}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="qa-btn-secondary"
+                    style={{ padding: '6px 12px', opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
  
       {drawerItem && (
