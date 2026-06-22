@@ -65,11 +65,21 @@ export default function Sidebar({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 4px 14px rgba(96,165,250,.3)',
           }}>
-            <History size={18} color="#fff"/>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Sentinel Logo">
+              <path d="M12 2L2 7V12C2 17.5 12 22 12 22C12 22 22 17.5 22 12V7L12 2Z" fill="url(#sentinelGlowSidebar)" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="12" r="4" stroke="#ffffff" strokeWidth="2"/>
+              <circle cx="12" cy="12" r="1.5" fill="#60a5fa"/>
+              <defs>
+                <linearGradient id="sentinelGlowSidebar" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0.8"/>
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.4"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
           {!collapsed && (
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: T.text, letterSpacing: '-.02em', lineHeight: 1.2 }}>ScopeGuard QA</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.text, letterSpacing: '-.02em', lineHeight: 1.2 }}>SentinelQAPortal</div>
               <div style={{ fontSize: 10, color: T.teal, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                 <span style={{ width: 6, height: 6, borderRadius: 6, background: T.teal, display: 'inline-block', animation: 'pulseDot 2s ease-in-out infinite' }}/>
                 Live monitoring

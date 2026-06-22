@@ -28,7 +28,7 @@ def build_slack_payload(logs: list[AuditLog]) -> dict[str, Any]:
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": f"ScopeGuard Alert ({len(logs)} changes)",
+                "text": f"SentinelQAPortal Alert ({len(logs)} changes)",
             },
         },
         {

@@ -238,7 +238,17 @@ const Sidebar = ({
     <div className="qa-sidebar">
       <div className="qa-sidebar-header">
         <h2 style={{ fontSize: 14, fontWeight: 750, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ListChecks size={18} color="var(--brand-accent)" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Sentinel Logo" style={{ flexShrink: 0 }}>
+            <path d="M12 2L2 7V12C2 17.5 12 22 12 22C12 22 22 17.5 22 12V7L12 2Z" fill="url(#sentinelGlowQASidebar)" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="12" cy="12" r="4" stroke="#ffffff" strokeWidth="2"/>
+            <circle cx="12" cy="12" r="1.5" fill="#60a5fa"/>
+            <defs>
+              <linearGradient id="sentinelGlowQASidebar" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#1e3a8a" stopOpacity="0.8"/>
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.4"/>
+              </linearGradient>
+            </defs>
+          </svg>
           <span>Release Portal</span>
         </h2>
         <button 

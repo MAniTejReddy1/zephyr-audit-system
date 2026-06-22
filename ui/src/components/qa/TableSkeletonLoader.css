@@ -1,122 +1,267 @@
 .qa-skeleton-container {
-  padding: 24px 40px;
-  background-color: var(--app-bg);
+  padding: 32px;
+  background-color: var(--app-bg, #0d1117);
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 24px;
+  height: 100%;
+  overflow-y: auto;
 }
 
-.qa-skeleton-header {
+/* Header Skeleton */
+.qa-skeleton-header-section {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+
+.qa-skeleton-header-top {
+  display: flex;
+  align-items: center;
   gap: 12px;
-  margin-bottom: 32px;
 }
 
-.qa-skeleton-header .qa-skeleton-line.short {
-  width: 30%;
+.qa-skeleton-header-top .title-block {
+  width: 280px;
   height: 32px;
+  border-radius: 8px;
 }
 
-.qa-skeleton-header .qa-skeleton-line.medium {
-  width: 50%;
-  height: 18px;
+.qa-skeleton-header-top .badge-block {
+  width: 70px;
+  height: 20px;
+  border-radius: 12px;
 }
 
-.qa-skeleton-toolbar {
+.qa-skeleton-header-meta {
   display: flex;
   gap: 16px;
-  align-items: center;
-  margin-bottom: 24px;
 }
 
-.qa-skeleton-toolbar .qa-skeleton-line.search {
-  width: 300px;
-  height: 38px;
-  border-radius: 6px;
+.qa-skeleton-header-meta .meta-item {
+  width: 110px;
+  height: 14px;
+  border-radius: 4px;
 }
 
-.qa-skeleton-filter-group {
+/* Stats Cards Skeleton */
+.qa-skeleton-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .qa-skeleton-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.qa-skeleton-stats-card {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background-color: var(--card, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 12px;
 }
 
-.qa-skeleton-filter-group .qa-skeleton-line.filter-btn {
-  width: 80px;
-  height: 36px;
-  border-radius: 6px;
+.qa-skeleton-stats-card .card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  flex-shrink: 0;
 }
 
-.qa-skeleton-table {
-  flex: 1;
+.qa-skeleton-stats-card .card-details {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  gap: 6px;
+  flex: 1;
+}
+
+.qa-skeleton-stats-card .card-label {
+  width: 60%;
+  height: 12px;
+}
+
+.qa-skeleton-stats-card .card-value {
+  width: 40%;
+  height: 20px;
+}
+
+/* Toolbar Skeleton */
+.qa-skeleton-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.qa-skeleton-toolbar .search-bar {
+  width: 280px;
+  height: 38px;
+  border-radius: 8px;
+}
+
+.qa-skeleton-toolbar .select-dropdown {
+  width: 140px;
+  height: 38px;
+  border-radius: 8px;
+}
+
+/* Table Skeleton */
+.qa-skeleton-table {
+  background-color: var(--card, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 12px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .qa-skeleton-table-header {
   display: flex;
-  background-color: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border, #30363d);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #8b949e);
 }
 
-.qa-skeleton-table-header .qa-skeleton-line.header-cell {
-  flex: 1;
-  height: 44px; /* Matches table header height */
-  margin: 0;
-  border-right: 1px solid var(--border);
-}
-.qa-skeleton-table-header .qa-skeleton-line.header-cell:last-child {
-  border-right: none;
-}
-
-
-.qa-skeleton-table-row {
+.qa-skeleton-table-body {
   display: flex;
-  border-bottom: 1px solid var(--border-light);
+  flex-direction: column;
 }
 
-.qa-skeleton-table-row:last-child {
+.qa-skeleton-row {
+  display: flex;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-light, #21262d);
+  align-items: center;
+  transition: background-color 0.2s ease;
+}
+
+.qa-skeleton-row:last-child {
   border-bottom: none;
 }
 
-.qa-skeleton-table-row .qa-skeleton-line.cell {
+.qa-skeleton-cell {
+  display: flex;
+  align-items: center;
+}
+
+/* Column Widths (matching real table columns) */
+.select-col {
+  width: 40px;
+  flex-shrink: 0;
+  justify-content: center;
+}
+
+.label-col {
   flex: 1;
-  height: 48px; /* Matches table row height */
-  margin: 0;
-  border-right: 1px solid var(--border-light);
-}
-.qa-skeleton-table-row .qa-skeleton-line.cell:last-child {
-  border-right: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding-right: 16px;
 }
 
+.status-col {
+  width: 140px;
+  flex-shrink: 0;
+  padding-right: 16px;
+}
 
-.qa-skeleton-line {
-  background-color: var(--border); /* Monochromatic base */
-  animation: loading-flash 1.5s infinite ease-in-out;
+.tester-col {
+  width: 180px;
+  flex-shrink: 0;
+  padding-right: 16px;
+}
+
+.bug-col {
+  width: 120px;
+  flex-shrink: 0;
+}
+
+/* Cell Elements Styling */
+.checkbox-box {
+  width: 16px;
+  height: 16px;
   border-radius: 4px;
-  margin: 8px 0;
 }
 
-/* Adjust specific widths for cells to mimic content */
-.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(1) { width: 40px; flex: none; border-right: 1px solid var(--border-light); } /* Checkbox */
-.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(2) { width: 180px; flex: none; border-right: 1px solid var(--border-light); } /* Status */
-.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(3) { width: 30%; } /* Test Case */
-.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(4) { width: 20%; } /* Folder Scope */
-.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(5) { width: 15%; } /* Issues */
-.qa-skeleton-table-row .qa-skeleton-line.cell:nth-child(6) { width: 100px; flex: none; } /* Details */
+.text-line {
+  height: 12px;
+}
 
+.text-line.primary {
+  width: 70%;
+  height: 14px;
+  border-radius: 4px;
+}
 
-@keyframes loading-flash {
+.text-line.secondary {
+  width: 35%;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.status-pill {
+  width: 100px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.tester-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.avatar-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.name-bar {
+  width: 80px;
+  height: 12px;
+}
+
+.bug-tag {
+  width: 75px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+.bug-placeholder {
+  width: 50px;
+  height: 8px;
+}
+
+/* Shimmer Animation Base */
+.qa-skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--border-light, rgba(255, 255, 255, 0.02)) 25%,
+    var(--border, rgba(255, 255, 255, 0.08)) 50%,
+    var(--border-light, rgba(255, 255, 255, 0.02)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-flow 1.5s infinite linear;
+}
+
+@keyframes shimmer-flow {
   0% {
-    background-color: var(--border);
-  }
-  50% {
-    background-color: var(--border-light);
+    background-position: -200% 0;
   }
   100% {
-    background-color: var(--border);
+    background-position: 200% 0;
   }
 }
