@@ -228,7 +228,8 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.1); /* Subtle shadow */
   border: 1px solid var(--border); /* 1px border */
   width: 160px;
-  overflow: hidden;
+  max-height: 280px;
+  overflow-y: auto;
   animation: slideDown 150ms ease-out; /* Fast and snappy */
 }
 .qa-status-option {
