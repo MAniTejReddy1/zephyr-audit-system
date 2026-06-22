@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Calendar, ListChecks, FileText, Search, X, ChevronDown, ChevronRight, ArrowRight, CheckSquare, Square, Folder, AlertTriangle, ChevronUp, AlertCircle, DownloadCloud, Plus, RefreshCw, MinusCircle, User, Upload, Tag, Layers, GitBranch, Activity } from 'lucide-react';
+import { Calendar, ListChecks, FileText, Search, X, ChevronDown, ChevronRight, ArrowRight, CheckSquare, Square, Folder, AlertTriangle, ChevronUp, AlertCircle, DownloadCloud, Plus, RefreshCw, MinusCircle, User, Upload, Tag, Layers, GitBranch, Activity, Settings, Edit, Copy, Trash2 } from 'lucide-react';
 import Badge from '../ui/Badge';
 
 import JiraStatus from './JiraStatus';
@@ -142,8 +142,15 @@ const MainContent = ({
   setActiveTagFilter,
   activeSelection,
   setActiveSelection,
-  cycles
+  cycles,
+  onEditCycleClick,
+  onCloneCycleClick,
+  onAddCasesClick,
+  onDeleteCycleClick,
+  onRemoveSelectedItems,
+  isAdmin
 }) => {
+  const isEditable = !activeCycle?.is_locked || isAdmin;
   const [progressWidths, setProgressWidths] = useState({});
   const [selectedItemForDrawer, setSelectedItemForDrawer] = useState(null);
   const [drawerItem, setDrawerItem] = useState(null);
@@ -151,6 +158,7 @@ const MainContent = ({
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [assignDropK, setAssignDropK] = useState(null); // State for individual assignment dropdown
   const [platformDropK, setPlatformDropK] = useState(null); // State for individual platform dropdown
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false); // State for header actions dropdown
   const mainContainerRef = useRef(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 100;
@@ -203,6 +211,7 @@ const MainContent = ({
     setBulkDropOpen(false);
     setAssignDropK(null);
     setPlatformDropK(null);
+    setActionsMenuOpen(false);
   }, []);
 
   useEffect(() => {
@@ -1079,6 +1088,32 @@ const MainContent = ({
               </div>
             </div>
           </div>
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setActionsMenuOpen(!actionsMenuOpen); }}
+              className="qa-btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}
+            >
+              <Settings size={14} /> Actions <ChevronDown size={14} />
+            </button>
+            {actionsMenuOpen && (
+              <div className="qa-status-dropdown" style={{ right: 0, left: 'auto', top: '100%', marginTop: 6, width: 180, zIndex: 100 }}>
+                <div className="qa-status-option" onClick={(e) => { e.stopPropagation(); setActionsMenuOpen(false); onAddCasesClick(); }}>
+                  <Plus size={14} /> Add Cases
+                </div>
+                <div className="qa-status-option" onClick={(e) => { e.stopPropagation(); setActionsMenuOpen(false); onEditCycleClick(); }}>
+                  <Edit size={14} /> Edit Cycle Details
+                </div>
+                <div className="qa-status-option" onClick={(e) => { e.stopPropagation(); setActionsMenuOpen(false); onCloneCycleClick(); }}>
+                  <Copy size={14} /> Clone / Duplicate
+                </div>
+                <div className="qa-dropdown-divider" />
+                <div className="qa-status-option reset" onClick={(e) => { e.stopPropagation(); setActionsMenuOpen(false); onDeleteCycleClick(); }} style={{ color: 'var(--danger)' }}>
+                  <Trash2 size={14} /> Delete Cycle
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* KPI Grid */}
@@ -1236,17 +1271,40 @@ const MainContent = ({
           {selectedItems.size > 0 && (
             <div style={{ position: 'relative', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--brand-accent)' }}>{selectedItems.size} selected</span>
+              
+              <button
+                onClick={(e) => { e.stopPropagation(); handleBulkExport(); }}
+                className="qa-btn-secondary"
+                style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                <DownloadCloud size={14} /> Export CSV
+              </button>
+
               <div style={{ position: 'relative' }}>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setBulkDropOpen(!bulkDropOpen); setDropK(null); setAssignDropK(null); setPlatformDropK(null); }}
+                  onClick={(e) => { 
+                    if (!isEditable) return;
+                    e.stopPropagation(); 
+                    setBulkDropOpen(!bulkDropOpen); 
+                    setDropK(null); 
+                    setAssignDropK(null); 
+                    setPlatformDropK(null); 
+                  }}
                   className="qa-btn-secondary"
-                  style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8 }}
+                  style={{ 
+                    padding: '8px 16px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 8,
+                    opacity: isEditable ? 1 : 0.5,
+                    cursor: isEditable ? 'pointer' : 'not-allowed'
+                  }}
+                  disabled={!isEditable}
                 >
                   Bulk Update <ChevronDown size={14} />
                 </button>
 
-
-                {bulkDropOpen && (
+                {isEditable && bulkDropOpen && (
                   <div className="qa-status-dropdown" style={{ right: 0, left: 'auto' }}>
                     <div className="qa-dropdown-group-title">Outcome States</div>
                     {['pass', 'pass_flaky', 'fail'].map(s => (
@@ -1285,8 +1343,20 @@ const MainContent = ({
                     <div className="qa-status-option" onClick={(e) => { e.stopPropagation(); setAssignDropK('bulk'); setBulkDropOpen(false); }}>
                       <User size={14} /> Assign To...
                     </div>
-                    <div className="qa-status-option" onClick={(e) => { e.stopPropagation(); handleBulkExport(); }}>
-                      <DownloadCloud size={14} /> Export to CSV
+                    <div className="qa-dropdown-divider" />
+                    <div
+                      className="qa-status-option reset"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Are you sure you want to remove the ${selectedItems.size} selected case(s) from this release cycle?`)) {
+                          onRemoveSelectedItems(Array.from(selectedItems));
+                          setBulkDropOpen(false);
+                          setSelectedItems(new Set());
+                        }
+                      }}
+                      style={{ color: 'var(--danger)', fontWeight: 600 }}
+                    >
+                      <Trash2 size={14} color="var(--danger)" /> Remove from Cycle
                     </div>
                   </div>
                 )}
@@ -1406,19 +1476,29 @@ const MainContent = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
                       <div style={{ position: 'relative', flex: 1 }}>
                         <button
-                          onClick={(e) => { e.stopPropagation(); setDropK(dropK === item.id ? null : item.id); setBulkDropOpen(false); setAssignDropK(null); setPlatformDropK(null); }}
+                          onClick={(e) => { 
+                            if (!isEditable) return;
+                            e.stopPropagation(); 
+                            setDropK(dropK === item.id ? null : item.id); 
+                            setBulkDropOpen(false); 
+                            setAssignDropK(null); 
+                            setPlatformDropK(null); 
+                          }}
                           className="qa-status-btn"
                           style={{
                             border: `1px solid ${isPending ? 'var(--border)' : STATUS_COLORS[item.status]}`,
                             backgroundColor: isPending ? 'var(--border-light)' : `${STATUS_COLORS[item.status]}15`,
                             color: isPending ? 'var(--text-secondary)' : STATUS_COLORS[item.status],
                             width: '100%',
+                            cursor: isEditable ? 'pointer' : 'not-allowed',
+                            opacity: isEditable ? 1 : 0.7
                           }}
+                          disabled={!isEditable}
                         >
                           <div style={{display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
                             {STATUS_ICONS[item.status]} <span style={{overflow: 'hidden', textOverflow: 'ellipsis'}}>{STATUS_LABELS[item.status]}</span>
                           </div>
-                          <ChevronDown size={12} style={{opacity: 0.5, flexShrink: 0}}/>
+                          {isEditable && <ChevronDown size={12} style={{opacity: 0.5, flexShrink: 0}}/>}
                         </button>
                         
                         {dropK === item.id && (
@@ -1474,7 +1554,7 @@ const MainContent = ({
                       
                       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                         <button
-                          onClick={(e) => { e.stopPropagation(); updateItem(item.id, { status: 'pass' }); }}
+                          onClick={(e) => { e.stopPropagation(); if (isEditable) updateItem(item.id, { status: 'pass' }); }}
                           className="qa-quick-status-btn pass"
                           title="Quick Pass"
                           style={{
@@ -1483,14 +1563,16 @@ const MainContent = ({
                             border: '1px solid rgba(16, 185, 129, 0.2)',
                             backgroundColor: item.status === 'pass' ? 'var(--success)' : 'rgba(16, 185, 129, 0.05)',
                             color: item.status === 'pass' ? '#fff' : 'var(--success)',
-                            cursor: 'pointer',
+                            cursor: isEditable ? 'pointer' : 'not-allowed',
+                            opacity: isEditable ? 1 : 0.5,
                             transition: 'all 150ms ease'
                           }}
+                          disabled={!isEditable}
                         >
                           <CheckSquare size={13} />
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); updateItem(item.id, { status: 'fail' }); }}
+                          onClick={(e) => { e.stopPropagation(); if (isEditable) updateItem(item.id, { status: 'fail' }); }}
                           className="qa-quick-status-btn fail"
                           title="Quick Fail"
                           style={{
@@ -1499,9 +1581,11 @@ const MainContent = ({
                             border: '1px solid rgba(239, 68, 68, 0.2)',
                             backgroundColor: item.status === 'fail' ? 'var(--danger)' : 'rgba(239, 68, 68, 0.05)',
                             color: item.status === 'fail' ? '#fff' : 'var(--danger)',
-                            cursor: 'pointer',
+                            cursor: isEditable ? 'pointer' : 'not-allowed',
+                            opacity: isEditable ? 1 : 0.5,
                             transition: 'all 150ms ease'
                           }}
+                          disabled={!isEditable}
                         >
                           <X size={13} />
                         </button>
@@ -1513,10 +1597,22 @@ const MainContent = ({
                     <div className="qa-table-cell">
                       <div style={{ position: 'relative' }}>
                         <button
-                          onClick={(e) => { e.stopPropagation(); setAssignDropK(assignDropK === item.id ? null : item.id); setDropK(null); setPlatformDropK(null); setBulkDropOpen(false); }}
+                          onClick={(e) => { 
+                            if (!isEditable) return;
+                            e.stopPropagation(); 
+                            setAssignDropK(assignDropK === item.id ? null : item.id); 
+                            setDropK(null); 
+                            setPlatformDropK(null); 
+                            setBulkDropOpen(false); 
+                          }}
                           className="qa-assign-btn"
+                          style={{
+                            cursor: isEditable ? 'pointer' : 'not-allowed',
+                            opacity: isEditable ? 1 : 0.7
+                          }}
+                          disabled={!isEditable}
                         >
-                          <User size={14} /> {item.assigned_to ? item.assigned_to : <span className="qa-empty-placeholder">Unassigned</span>} <ChevronDown size={14} style={{opacity: 0.5}}/>
+                          <User size={14} /> {item.assigned_to ? item.assigned_to : <span className="qa-empty-placeholder">Unassigned</span>} {isEditable && <ChevronDown size={14} style={{opacity: 0.5}}/>}
                         </button>
                         {assignDropK === item.id && (
                           <div className="qa-status-dropdown" style={{ left: 0, right: 'auto' }}>
@@ -1648,6 +1744,8 @@ const MainContent = ({
           onClose={closeDetailsDrawer}
           updateItem={updateItem}
           availableTesters={availableTesters}
+          isCycleLocked={activeCycle?.is_locked}
+          isAdmin={isAdmin}
         />
       )}
     </div>

@@ -34,6 +34,25 @@ const QAChecklistPage = () => {
 
   // Modal states
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
+  const [isAddCasesMode, setIsAddCasesMode] = useState(false);
+
+  const [editName, setEditName] = useState('');
+  const [editReleaseCycle, setEditReleaseCycle] = useState('');
+  const [editVersion, setEditVersion] = useState('');
+  const [editSquad, setEditSquad] = useState('');
+  const [editBuildVersion, setEditBuildVersion] = useState('');
+  const [editOwner, setEditOwner] = useState('');
+  const [editDeadline, setEditDeadline] = useState('');
+  const [editStatus, setEditStatus] = useState('active');
+
+  const [cloneName, setCloneName] = useState('');
+  const [cloneReleaseCycle, setCloneReleaseCycle] = useState('');
+  const [cloneVersion, setCloneVersion] = useState('');
+  const [cloneSquad, setCloneSquad] = useState('');
+  const [isCloneNameTouched, setIsCloneNameTouched] = useState(false);
+
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [importFolderIds, setImportFolderIds] = useState([]);
   const [importCycleName, setImportCycleName] = useState('');
@@ -104,6 +123,31 @@ const QAChecklistPage = () => {
   const handleSquadChange = (val) => {
     setImportSquad(val);
     updateCycleNameFromParts(importReleaseCycle, importVersion, val);
+  };
+
+  const updateCloneNameFromParts = (rc, ver, sq) => {
+    if (!isCloneNameTouched) {
+      const parts = [];
+      if (rc) parts.push(rc);
+      if (ver) parts.push(ver);
+      if (sq) parts.push(sq);
+      if (parts.length > 0) {
+        setCloneName(parts.join(' / '));
+      }
+    }
+  };
+
+  const handleCloneReleaseCycleChange = (val) => {
+    setCloneReleaseCycle(val);
+    updateCloneNameFromParts(val, cloneVersion, cloneSquad);
+  };
+  const handleCloneVersionChange = (val) => {
+    setCloneVersion(val);
+    updateCloneNameFromParts(cloneReleaseCycle, val, cloneSquad);
+  };
+  const handleCloneSquadChange = (val) => {
+    setCloneSquad(val);
+    updateCloneNameFromParts(cloneReleaseCycle, cloneVersion, val);
   };
 
   const fetchData = useCallback(async () => {
@@ -325,6 +369,228 @@ const QAChecklistPage = () => {
     }
   };
 
+  const handleAddCasesToCycle = async () => {
+    if (activeCycle?.is_locked && !isAdmin) {
+      alert('This cycle is locked and cannot be modified.');
+      return;
+    }
+    if (importFolderIds.length === 0) return setImportError('Please select at least one folder');
+    setImporting(true);
+    setImportError(null);
+    try {
+      const selectedPlatforms = Object.keys(importPlatforms).filter(k => importPlatforms[k]);
+      const selectedPriorities = Object.keys(importPriorities).filter(k => importPriorities[k]);
+      const selectedLabels = Object.keys(importLabels).filter(k => importLabels[k]);
+
+      const queryParams = [
+        ...importFolderIds.map(id => `folder_id=${id}`),
+        `case_type=${importCaseType}`,
+        ...selectedPlatforms.map(plat => `platforms=${encodeURIComponent(plat)}`),
+        ...selectedPriorities.map(p => `priorities=${encodeURIComponent(p)}`),
+        ...selectedLabels.map(lbl => `labels=${encodeURIComponent(lbl)}`)
+      ].join('&');
+
+      await apiFetch(`/cycles/${activeCycleId}/import_cases?${queryParams}`, { method: 'POST' });
+      setIsImportModalOpen(false);
+      setIsAddCasesMode(false);
+      
+      // Reset inputs
+      setImportFolderIds([]);
+      setImportPlatforms({ Mobile: false, Web: false, API: false });
+      setImportCaseType('all');
+      setImportPriorities({ High: true, Normal: true, Low: true });
+      setImportLabels({ sanity: false, regression: false });
+
+      fetchData();
+    } catch (err) {
+      setImportError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleEditCycleSubmit = async () => {
+    if (!editName) return alert('Name is required');
+    try {
+      const res = await apiFetch(`/cycles/${activeCycleId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: editName,
+          release_cycle: editReleaseCycle,
+          version: editVersion,
+          squad: editSquad,
+          build_version: editBuildVersion || null,
+          owner: editOwner || null,
+          deadline: editDeadline ? new Date(editDeadline).toISOString() : null,
+          status: editStatus
+        })
+      });
+      setIsEditModalOpen(false);
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleCloneCycleSubmit = async () => {
+    if (!cloneName) return alert('Name is required');
+    try {
+      const newCycle = await apiFetch(`/cycles/${activeCycleId}/clone`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: cloneName,
+          release_cycle: cloneReleaseCycle || null,
+          version: cloneVersion || null,
+          squad: cloneSquad || null
+        })
+      });
+      setIsCloneModalOpen(false);
+      setActiveSelection({ type: 'squad', id: newCycle.id });
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteCycle = async () => {
+    if (!window.confirm(`Are you sure you want to permanently delete the release cycle "${activeCycle?.name}"? This will delete all cases associated with it.`)) return;
+    try {
+      await apiFetch(`/cycles/${activeCycleId}`, { method: 'DELETE' });
+      const remainingCycles = cycles.filter(c => c.id !== activeCycleId);
+      if (remainingCycles.length > 0) {
+        setActiveSelection({ type: 'squad', id: remainingCycles[0].id });
+      } else {
+        setActiveSelection(null);
+      }
+      fetchData();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleRemoveSelectedItems = async (itemIds) => {
+    if (activeCycle?.is_locked && !isAdmin) {
+      alert('This cycle is locked and cannot be modified.');
+      return;
+    }
+    try {
+      // Optimistic update
+      setCycles(prev => prev.map(c => {
+        if (c.id !== activeCycleId) return c;
+        return {
+          ...c,
+          items: c.items.filter(i => !itemIds.includes(i.id))
+        };
+      }));
+
+      await apiFetch(`/cycles/${activeCycleId}/remove_items`, {
+        method: 'POST',
+        body: JSON.stringify({ item_ids: itemIds })
+      });
+    } catch (err) {
+      console.error(err);
+      fetchData();
+    }
+  };
+
+  const openEditModal = () => {
+    if (!activeCycle) return;
+    setEditName(activeCycle.name || '');
+    setEditReleaseCycle(activeCycle.release_cycle || '');
+    setEditVersion(activeCycle.version || '');
+    setEditSquad(activeCycle.squad || '');
+    setEditBuildVersion(activeCycle.build_version || '');
+    setEditOwner(activeCycle.owner || '');
+    setEditDeadline(activeCycle.deadline ? new Date(activeCycle.deadline).toISOString().split('T')[0] : '');
+    setEditStatus(activeCycle.status || 'active');
+    setIsEditModalOpen(true);
+  };
+
+  const openCloneModal = () => {
+    if (!activeCycle) return;
+    setCloneName(`${activeCycle.release_cycle || 'Release'} / ${activeCycle.version || 'v1.0.0'} / Copy`);
+    setCloneReleaseCycle(activeCycle.release_cycle || '');
+    setCloneVersion(activeCycle.version || '');
+    setCloneSquad(activeCycle.squad || '');
+    setIsCloneNameTouched(false);
+    setIsCloneModalOpen(true);
+  };
+
+  const openAddCasesModal = () => {
+    setIsAddCasesMode(true);
+    setImportFolderIds([]);
+    setImportPlatforms({ Mobile: false, Web: false, API: false });
+    setImportCaseType('all');
+    setImportPriorities({ High: true, Normal: true, Low: true });
+    setImportLabels({ sanity: false, regression: false });
+    setIsImportModalOpen(true);
+  };
+
+  const handleOpenNewCycleModal = () => {
+    setIsAddCasesMode(false);
+    setImportFolderIds([]);
+    setImportCycleName('');
+    setImportReleaseCycle('');
+    setImportVersion('');
+    setImportSquad('');
+    setImportPlatforms({ Mobile: false, Web: false, API: false });
+    setImportCaseType('all');
+    setImportPriorities({ High: true, Normal: true, Low: true });
+    setImportLabels({ sanity: false, regression: false });
+    setIsCycleNameTouched(false);
+    setIsImportModalOpen(true);
+  };
+
+  const handleAddVersionClick = (rcName) => {
+    setIsAddCasesMode(false);
+    setImportReleaseCycle(rcName);
+    setImportVersion('');
+    setImportSquad('');
+    setImportCycleName(`${rcName} / `);
+    setIsCycleNameTouched(false);
+    setIsImportModalOpen(true);
+  };
+
+  const handleAddSquadClick = (rcName, verName) => {
+    setIsAddCasesMode(false);
+    setImportReleaseCycle(rcName);
+    setImportVersion(verName);
+    setImportSquad('');
+    setImportCycleName(`${rcName} / ${verName} / `);
+    setIsCycleNameTouched(false);
+    setIsImportModalOpen(true);
+  };
+
+  const handleSignOffCycle = async (cycleId) => {
+    const cycle = cycles.find(c => c.id === cycleId);
+    if (!cycle) return;
+    const pct = cycle.pct || 0;
+    let confirmMsg = `Are you sure you want to sign off and lock the release cycle "${cycle.name}"?`;
+    if (pct < 100) {
+      confirmMsg = `WARNING: This cycle is only ${pct}% complete. Are you sure you want to sign off and lock the release cycle "${cycle.name}"?`;
+    }
+    if (!window.confirm(confirmMsg)) return;
+    try {
+      await apiFetch(`/cycles/${cycleId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'Signed Off' })
+      });
+      fetchData();
+      alert(`Cycle "${cycle.name}" has been Signed Off and locked.`);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleSignOffClick = (cycle) => {
+    handleSignOffCycle(cycle.id);
+  };
+
+  const handleReopenClick = (cycle) => {
+    setActiveSelection({ type: 'squad', id: cycle.id });
+    setShowReopenCycleModal(true);
+  };
+
   const updateItem = async (itemId, updates) => {
     if (activeCycle?.is_locked && !isAdmin) {
       alert('This cycle is locked and cannot be modified.');
@@ -443,10 +709,10 @@ const QAChecklistPage = () => {
   const handleReopenCycle = async (justification) => {
     if (!activeCycle) return;
     try {
-      // Simulate API call to reopen cycle
-      console.log(`Reopening cycle ${activeCycle.name} with justification: ${justification}`);
-      // In a real app, this would be an API call:
-      // await apiFetch(`/cycles/${activeCycle.id}/reopen`, { method: 'POST', body: JSON.stringify({ justification }) });
+      await apiFetch(`/cycles/${activeCycleId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'Active' })
+      });
       
       setCycles(prev => prev.map(c => 
         c.id === activeCycle.id ? { ...c, status: 'Active', is_locked: false, audit_log: [...(c.audit_log || []), { action: 'Reopened', timestamp: new Date().toISOString(), justification }] } : c
@@ -552,6 +818,10 @@ const QAChecklistPage = () => {
         setActiveModuleFilter={setActiveModuleFilter} // Pass to sidebar
         isAdmin={isAdmin}
         setShowReopenCycleModal={setShowReopenCycleModal}
+        onAddVersionClick={() => {}}
+        onAddSquadClick={() => {}}
+        onSignOffClick={() => {}}
+        onReopenClick={() => {}}
       />
       <TableSkeletonLoader />
     </div>
@@ -574,13 +844,17 @@ const QAChecklistPage = () => {
         cycles={cycles} 
         activeSelection={activeSelection} 
         setActiveSelection={setActiveSelection} 
-        setIsImportModalOpen={setIsImportModalOpen} 
+        setIsImportModalOpen={handleOpenNewCycleModal} 
         activeCycle={activeCycle} // Pass activeCycle to Sidebar
         overallCompletionPct={overallCompletionPct} // Pass overallCompletionPct to Sidebar
         activeModuleFilter={activeModuleFilter} // Pass to sidebar
         setActiveModuleFilter={setActiveModuleFilter} // Pass to sidebar
         isAdmin={isAdmin} // Pass isAdmin to Sidebar
         setShowReopenCycleModal={setShowReopenCycleModal} // Pass setter to Sidebar
+        onAddVersionClick={handleAddVersionClick}
+        onAddSquadClick={handleAddSquadClick}
+        onSignOffClick={handleSignOffClick}
+        onReopenClick={handleReopenClick}
       />
       <MainContent
         activeCycle={activeCycle}
@@ -604,7 +878,7 @@ const QAChecklistPage = () => {
         expanded={expanded}
         toggleSelect={toggleSelect}
         updateItem={updateItem}
-        setIsImportModalOpen={setIsImportModalOpen}
+        setIsImportModalOpen={handleOpenNewCycleModal}
         itemToFlashId={itemToFlashId} // Pass new state
         totalBlockers={totalBlockers} // New KPI
         dueTodayCount={dueTodayCount} // New KPI
@@ -617,6 +891,11 @@ const QAChecklistPage = () => {
         activeSelection={activeSelection}
         setActiveSelection={setActiveSelection}
         cycles={cycles}
+        onEditCycleClick={openEditModal}
+        onCloneCycleClick={openCloneModal}
+        onAddCasesClick={openAddCasesModal}
+        onDeleteCycleClick={handleDeleteCycle}
+        onRemoveSelectedItems={handleRemoveSelectedItems}
       />
 
       {showCascadeModal && itemToCascade && (
@@ -641,72 +920,78 @@ const QAChecklistPage = () => {
       )}
 
       {isImportModalOpen && (
-        <div className="qa-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setIsImportModalOpen(false); }}>
+        <div className="qa-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setIsImportModalOpen(false); setIsAddCasesMode(false); } }}>
           <div className="qa-modal-content thin-scrollbar" style={{ maxWidth: 540, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>New Release Cycle</h2>
-              <button onClick={() => setIsImportModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                {isAddCasesMode ? 'Add Cases to Existing Cycle' : 'New Release Cycle'}
+              </h2>
+              <button onClick={() => { setIsImportModalOpen(false); setIsAddCasesMode(false); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                 <XCircle size={20} />
               </button>
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* Hierarchical Fields */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Release Cycle</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Release June"
-                    value={importReleaseCycle}
-                    onChange={(e) => handleReleaseCycleChange(e.target.value)}
-                    className="qa-search-input"
-                    style={{ paddingLeft: 12 }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Version</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. v1.4.0"
-                    value={importVersion}
-                    onChange={(e) => handleVersionChange(e.target.value)}
-                    className="qa-search-input"
-                    style={{ paddingLeft: 12 }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Squad</label>
-                  <select
-                    value={importSquad}
-                    onChange={(e) => handleSquadChange(e.target.value)}
-                    className="qa-search-input"
-                    style={{ paddingLeft: 12, appearance: 'none', cursor: 'pointer', backgroundImage: 'url("data:image/svg+xml;utf8,<svg fill=\'%2364748b\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
-                  >
-                    <option value="" disabled>Select Squad</option>
-                    <option value="Futures">Futures</option>
-                    <option value="Spot">Spot</option>
-                    <option value="Payments">Payments</option>
-                    <option value="Options">Options</option>
-                    <option value="Engagement">Engagement</option>
-                  </select>
-                </div>
-              </div>
+              {!isAddCasesMode && (
+                <>
+                  {/* Hierarchical Fields */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Release Cycle</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Release June"
+                        value={importReleaseCycle}
+                        onChange={(e) => handleReleaseCycleChange(e.target.value)}
+                        className="qa-search-input"
+                        style={{ paddingLeft: 12 }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Version</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. v1.4.0"
+                        value={importVersion}
+                        onChange={(e) => handleVersionChange(e.target.value)}
+                        className="qa-search-input"
+                        style={{ paddingLeft: 12 }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Squad</label>
+                      <select
+                        value={importSquad}
+                        onChange={(e) => handleSquadChange(e.target.value)}
+                        className="qa-search-input"
+                        style={{ paddingLeft: 12, appearance: 'none', cursor: 'pointer', backgroundImage: 'url("data:image/svg+xml;utf8,<svg fill=\'%2364748b\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
+                      >
+                        <option value="" disabled>Select Squad</option>
+                        <option value="Futures">Futures</option>
+                        <option value="Spot">Spot</option>
+                        <option value="Payments">Payments</option>
+                        <option value="Options">Options</option>
+                        <option value="Engagement">Engagement</option>
+                      </select>
+                    </div>
+                  </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Cycle Name (Zephyr Output)</label>
-                <input
-                  type="text"
-                  placeholder="Release / Version / Squad"
-                  value={importCycleName}
-                  onChange={(e) => {
-                    setImportCycleName(e.target.value);
-                    setIsCycleNameTouched(true);
-                  }}
-                  className="qa-search-input"
-                  style={{ paddingLeft: 12 }}
-                />
-              </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Cycle Name (Zephyr Output)</label>
+                    <input
+                      type="text"
+                      placeholder="Release / Version / Squad"
+                      value={importCycleName}
+                      onChange={(e) => {
+                        setImportCycleName(e.target.value);
+                        setIsCycleNameTouched(true);
+                      }}
+                      className="qa-search-input"
+                      style={{ paddingLeft: 12 }}
+                    />
+                  </div>
+                </>
+              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Import Test Cases From Folder</label>
@@ -825,7 +1110,7 @@ const QAChecklistPage = () => {
               <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
                 <button
                   type="button"
-                  onClick={() => setIsImportModalOpen(false)}
+                  onClick={() => { setIsImportModalOpen(false); setIsAddCasesMode(false); }}
                   className="qa-btn-secondary"
                   style={{ flex: 1, padding: '10px 0' }}
                 >
@@ -833,12 +1118,233 @@ const QAChecklistPage = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={handleImport}
+                  onClick={isAddCasesMode ? handleAddCasesToCycle : handleImport}
                   disabled={importing}
                   className="qa-btn-primary"
                   style={{ flex: 1, padding: '10px 0', justifyContent: 'center' }}
                 >
-                  {importing ? 'Importing...' : 'Create Cycle'}
+                  {importing ? 'Importing...' : (isAddCasesMode ? 'Add Cases' : 'Create Cycle')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditModalOpen && (
+        <div className="qa-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setIsEditModalOpen(false); }}>
+          <div className="qa-modal-content thin-scrollbar" style={{ maxWidth: 540, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Edit Cycle Details</h2>
+              <button onClick={() => setIsEditModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <XCircle size={20} />
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Cycle Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="qa-search-input"
+                  style={{ paddingLeft: 12 }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Release Cycle</label>
+                  <input
+                    type="text"
+                    value={editReleaseCycle}
+                    onChange={(e) => setEditReleaseCycle(e.target.value)}
+                    className="qa-search-input"
+                    style={{ paddingLeft: 12 }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Version</label>
+                  <input
+                    type="text"
+                    value={editVersion}
+                    onChange={(e) => setEditVersion(e.target.value)}
+                    className="qa-search-input"
+                    style={{ paddingLeft: 12 }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Squad</label>
+                  <select
+                    value={editSquad}
+                    onChange={(e) => setEditSquad(e.target.value)}
+                    className="qa-search-input"
+                    style={{ paddingLeft: 12, appearance: 'none', cursor: 'pointer', backgroundImage: 'url("data:image/svg+xml;utf8,<svg fill=\'%2364748b\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
+                  >
+                    <option value="" disabled>Select Squad</option>
+                    <option value="Futures">Futures</option>
+                    <option value="Spot">Spot</option>
+                    <option value="Payments">Payments</option>
+                    <option value="Options">Options</option>
+                    <option value="Engagement">Engagement</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Build Version</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Build 142"
+                    value={editBuildVersion}
+                    onChange={(e) => setEditBuildVersion(e.target.value)}
+                    className="qa-search-input"
+                    style={{ paddingLeft: 12 }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Owner</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={editOwner}
+                    onChange={(e) => setEditOwner(e.target.value)}
+                    className="qa-search-input"
+                    style={{ paddingLeft: 12 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Deadline</label>
+                  <input
+                    type="date"
+                    value={editDeadline}
+                    onChange={(e) => setEditDeadline(e.target.value)}
+                    className="qa-search-input"
+                    style={{ paddingLeft: 12 }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Status</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="qa-search-input"
+                    style={{ paddingLeft: 12, appearance: 'none', cursor: 'pointer', backgroundImage: 'url("data:image/svg+xml;utf8,<svg fill=\'%2364748b\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Signed Off">Signed Off</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="qa-btn-secondary"
+                  style={{ flex: 1, padding: '10px 0' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEditCycleSubmit}
+                  className="qa-btn-primary"
+                  style={{ flex: 1, padding: '10px 0', justifyContent: 'center' }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isCloneModalOpen && (
+        <div className="qa-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setIsCloneModalOpen(false); }}>
+          <div className="qa-modal-content thin-scrollbar" style={{ maxWidth: 540, maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Clone / Duplicate Cycle</h2>
+              <button onClick={() => setIsCloneModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <XCircle size={20} />
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Cloned Cycle Name</label>
+                <input
+                  type="text"
+                  value={cloneName}
+                  onChange={(e) => {
+                    setCloneName(e.target.value);
+                    setIsCloneNameTouched(true);
+                  }}
+                  className="qa-search-input"
+                  style={{ paddingLeft: 12 }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Release Cycle</label>
+                  <input
+                    type="text"
+                    value={cloneReleaseCycle}
+                    onChange={(e) => handleCloneReleaseCycleChange(e.target.value)}
+                    className="qa-search-input"
+                    style={{ paddingLeft: 12 }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Version</label>
+                  <input
+                    type="text"
+                    value={cloneVersion}
+                    onChange={(e) => handleCloneVersionChange(e.target.value)}
+                    className="qa-search-input"
+                    style={{ paddingLeft: 12 }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Squad</label>
+                  <select
+                    value={cloneSquad}
+                    onChange={(e) => handleCloneSquadChange(e.target.value)}
+                    className="qa-search-input"
+                    style={{ paddingLeft: 12, appearance: 'none', cursor: 'pointer', backgroundImage: 'url("data:image/svg+xml;utf8,<svg fill=\'%2364748b\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
+                  >
+                    <option value="" disabled>Select Squad</option>
+                    <option value="Futures">Futures</option>
+                    <option value="Spot">Spot</option>
+                    <option value="Payments">Payments</option>
+                    <option value="Options">Options</option>
+                    <option value="Engagement">Engagement</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsCloneModalOpen(false)}
+                  className="qa-btn-secondary"
+                  style={{ flex: 1, padding: '10px 0' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloneCycleSubmit}
+                  className="qa-btn-primary"
+                  style={{ flex: 1, padding: '10px 0', justifyContent: 'center' }}
+                >
+                  Clone Cycle
                 </button>
               </div>
             </div>

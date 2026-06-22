@@ -188,6 +188,28 @@ class ReleaseCycleOut(ReleaseCycleBase):
     items: List[ChecklistItemListOut] = []
 
 
+class ReleaseCycleUpdate(BaseModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
+    release_cycle: Optional[str] = None
+    version: Optional[str] = None
+    squad: Optional[str] = None
+    build_version: Optional[str] = None
+    owner: Optional[str] = None
+    deadline: Optional[datetime] = None
+
+
+class ReleaseCycleClone(BaseModel):
+    name: str
+    release_cycle: Optional[str] = None
+    version: Optional[str] = None
+    squad: Optional[str] = None
+
+
+class BulkRemoveItems(BaseModel):
+    item_ids: List[int]
+
+
 
 class TestCaseFullOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

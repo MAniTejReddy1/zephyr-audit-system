@@ -468,3 +468,24 @@
 @keyframes slideInRight {
   to { transform: translateX(0); }
 }
+
+/* Disabled states style rules for premium read-only view */
+.qa-details-select:disabled,
+.qa-details-input:disabled,
+.qa-details-textarea:disabled {
+  background-color: rgba(255, 255, 255, 0.02);
+  border-color: var(--border);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.qa-step-item.disabled-step {
+  cursor: not-allowed;
+}
+
+.qa-step-item.disabled-step:hover {
+  transform: none;
+  background-color: rgba(255, 255, 255, 0.015);
+  border-color: var(--border);
+}

@@ -34,7 +34,17 @@ const normalizeVerName = (v) => {
   return cleaned;
 };
 
-const Sidebar = ({ cycles, activeSelection, setActiveSelection, setIsImportModalOpen, activeCycle }) => {
+const Sidebar = ({ 
+  cycles, 
+  activeSelection, 
+  setActiveSelection, 
+  setIsImportModalOpen, 
+  activeCycle,
+  onAddVersionClick,
+  onAddSquadClick,
+  onSignOffClick,
+  onReopenClick
+}) => {
   const [expandedFolders, setExpandedFolders] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'signed-off'
@@ -222,7 +232,7 @@ const Sidebar = ({ cycles, activeSelection, setActiveSelection, setIsImportModal
     });
   };
 
-  const isNewButtonDisabled = activeCycle?.is_locked;
+  const isNewButtonDisabled = false;
 
   return (
     <div className="qa-sidebar">
@@ -316,6 +326,14 @@ const Sidebar = ({ cycles, activeSelection, setActiveSelection, setIsImportModal
                     <span className="qa-tree-folder-name" title={rcName}>{rcName}</span>
                   </div>
                   <div className="qa-tree-folder-stats">
+                    <button 
+                      className="qa-tree-quick-action" 
+                      onClick={(e) => { e.stopPropagation(); onAddVersionClick(rcName); }}
+                      title="Add Version to Release Cycle"
+                      style={{ marginRight: 4 }}
+                    >
+                      <Plus size={11} />
+                    </button>
                     <span className="squad-fraction" title="Completed Squads">{completedSquads}/{totalSquads} sq</span>
                     <span className="percent-progress">{pct}%</span>
                   </div>
@@ -350,6 +368,14 @@ const Sidebar = ({ cycles, activeSelection, setActiveSelection, setIsImportModal
                               <span className="qa-tree-folder-name" title={verName}>{verName}</span>
                             </div>
                             <div className="qa-tree-folder-stats">
+                              <button 
+                                className="qa-tree-quick-action" 
+                                onClick={(e) => { e.stopPropagation(); onAddSquadClick(rcName, verName); }}
+                                title="Add Squad to Version"
+                                style={{ marginRight: 4 }}
+                              >
+                                <Plus size={11} />
+                              </button>
                               <span className="squad-fraction">{vCompleted}/{vTotal} sq</span>
                               <span className="percent-progress">{vPct}%</span>
                             </div>
@@ -380,6 +406,25 @@ const Sidebar = ({ cycles, activeSelection, setActiveSelection, setIsImportModal
                                       
                                       {/* Issue counts & progress */}
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                                        {cycle.status === 'Signed Off' ? (
+                                          <button
+                                            className="qa-tree-quick-action reopen"
+                                            onClick={(e) => { e.stopPropagation(); onReopenClick(cycle); }}
+                                            title="Reopen Cycle"
+                                            style={{ padding: '2px 4px' }}
+                                          >
+                                            <AlertCircle size={10} style={{ color: 'var(--warning)' }} />
+                                          </button>
+                                        ) : (
+                                          <button
+                                            className="qa-tree-quick-action signoff"
+                                            onClick={(e) => { e.stopPropagation(); onSignOffClick(cycle); }}
+                                            title="Sign Off Cycle"
+                                            style={{ padding: '2px 4px' }}
+                                          >
+                                            <ListChecks size={10} style={{ color: 'var(--success)' }} />
+                                          </button>
+                                        )}
                                         {(cycle.fails > 0 || cycle.blocked > 0) && (
                                           <div style={{ display: 'flex', gap: 3 }}>
                                             {cycle.fails > 0 && <span className="qa-leaf-issue-indicator fail">{cycle.fails}F</span>}

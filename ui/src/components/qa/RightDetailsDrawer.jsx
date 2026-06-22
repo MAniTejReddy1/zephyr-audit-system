@@ -5,7 +5,16 @@ import { STATUS_COLORS, STATUS_LABELS } from '../../constants.jsx';
 import { apiFetch } from '../../utils';
 import './RightDetailsDrawer.css';
 
-const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], isOpen }) => {
+const RightDetailsDrawer = ({ 
+  item, 
+  onClose, 
+  updateItem, 
+  availableTesters = [], 
+  isOpen,
+  isCycleLocked,
+  isAdmin
+}) => {
+  const isEditable = !isCycleLocked || isAdmin;
   const [evidence, setEvidence] = useState(item.evidence || []);
   const [isDragging, setIsDragging] = useState(false);
   const [showDropzone, setShowDropzone] = useState(false);
@@ -115,6 +124,7 @@ const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], 
   };
 
   const toggleStep = (idx) => {
+    if (!isEditable) return;
     setCheckedSteps(prev => {
       const next = { ...prev, [idx]: !prev[idx] };
       try {
@@ -237,13 +247,15 @@ const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], 
                       {details?.checklist_label || item.checklist_label || item.test_case?.name || 'Untitled checklist item'}
                     </h3>
                     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                      <button 
-                        onClick={() => setIsEditingLabel(true)}
-                        style={{ background: 'none', border: 'none', color: 'var(--brand-accent)', fontSize: 11, cursor: 'pointer', fontWeight: 600, padding: 0 }}
-                      >
-                        Edit
-                      </button>
-                      {(details?.label_overridden || item.label_overridden) && (
+                      {isEditable && (
+                        <button 
+                          onClick={() => setIsEditingLabel(true)}
+                          style={{ background: 'none', border: 'none', color: 'var(--brand-accent)', fontSize: 11, cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {isEditable && (details?.label_overridden || item.label_overridden) && (
                         <button 
                           onClick={handleRegenerate}
                           style={{ background: 'none', border: 'none', color: 'var(--warning)', fontSize: 11, cursor: 'pointer', fontWeight: 600, padding: 0 }}
@@ -366,6 +378,7 @@ const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], 
                     className="qa-details-select"
                     value={item.assigned_to || ''}
                     onChange={(e) => updateItem(item.id, { assigned_to: e.target.value || null })}
+                    disabled={!isEditable}
                   >
                     <option value="">Unassigned</option>
                     {availableTesters.map(tester => (
@@ -380,6 +393,7 @@ const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], 
                     className="qa-details-select"
                     value={item.platform || ''}
                     onChange={(e) => updateItem(item.id, { platform: e.target.value || null })}
+                    disabled={!isEditable}
                   >
                     <option value="">N/A</option>
                     {['Mobile', 'Web', 'API'].map(plat => (
@@ -414,6 +428,7 @@ const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], 
                   value={item.bug_id || ''}
                   onChange={(e) => updateItem(item.id, { bug_id: e.target.value || null })}
                   placeholder="e.g. JIRA-1234"
+                  disabled={!isEditable}
                 />
                 {needsAttention && (
                   <div className="qa-details-warning">
@@ -462,7 +477,7 @@ const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], 
                       <div 
                         key={idx} 
                         onClick={() => toggleStep(idx)}
-                        className={`qa-step-item ${isChecked ? 'checked' : ''}`}
+                        className={`qa-step-item ${isChecked ? 'checked' : ''} ${!isEditable ? 'disabled-step' : ''}`}
                       >
                         <div className="qa-step-checkbox">
                           {isChecked ? (
@@ -504,8 +519,9 @@ const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], 
                   if(e.target.value !== item.notes) updateItem(item.id, { notes: e.target.value })
                 }}
                 placeholder="Describe execution steps, test data used, or steps to reproduce if an issue was found..."
+                disabled={!isEditable}
               />
-              <div className="qa-details-hint">Notes are auto-saved when you click away.</div>
+              {isEditable && <div className="qa-details-hint">Notes are auto-saved when you click away.</div>}
             </div>
 
             {/* Evidence */}
@@ -513,33 +529,41 @@ const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], 
               <label className="qa-details-label">
                 <UploadCloud size={14}/> Evidence Upload
               </label>
-              {(!showDropzone && evidence.length === 0) ? (
-                <button
-                  type="button"
-                  className="qa-btn-secondary"
-                  onClick={() => setShowDropzone(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', justifyContent: 'center', padding: '10px 0', borderStyle: 'dashed' }}
-                >
-                  <UploadCloud size={16} /> Attach evidence
-                </button>
+              {isEditable ? (
+                (!showDropzone && evidence.length === 0) ? (
+                  <button
+                    type="button"
+                    className="qa-btn-secondary"
+                    onClick={() => setShowDropzone(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', justifyContent: 'center', padding: '10px 0', borderStyle: 'dashed' }}
+                  >
+                    <UploadCloud size={16} /> Attach evidence
+                  </button>
+                ) : (
+                  <div
+                    className={`qa-evidence-dropzone ${isDragging ? 'dragging' : ''}`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => document.getElementById('evidence-upload-input').click()}
+                  >
+                    <UploadCloud size={24} />
+                    <span>Drag & drop files here or click to upload</span>
+                    <input
+                      id="evidence-upload-input"
+                      type="file"
+                      multiple
+                      onChange={handleFileInput}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+                )
               ) : (
-                <div
-                  className={`qa-evidence-dropzone ${isDragging ? 'dragging' : ''}`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => document.getElementById('evidence-upload-input').click()}
-                >
-                  <UploadCloud size={24} />
-                  <span>Drag & drop files here or click to upload</span>
-                  <input
-                    id="evidence-upload-input"
-                    type="file"
-                    multiple
-                    onChange={handleFileInput}
-                    style={{ display: 'none' }}
-                  />
-                </div>
+                evidence.length === 0 && (
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', textAlign: 'center', padding: '16px 0', border: '1px dashed var(--border)', borderRadius: 6 }}>
+                    No evidence attached.
+                  </div>
+                )
               )}
               {evidence.length > 0 && (
                 <div className="qa-evidence-previews">
@@ -553,9 +577,11 @@ const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], 
                           <span>{file.name}</span>
                         </div>
                       )}
-                      <button onClick={() => handleRemoveEvidence(file.id)} className="qa-evidence-remove-btn">
-                        <Trash2 size={16} />
-                      </button>
+                      {isEditable && (
+                        <button onClick={() => handleRemoveEvidence(file.id)} className="qa-evidence-remove-btn">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

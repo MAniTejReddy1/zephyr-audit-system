@@ -424,3 +424,42 @@
     box-shadow: 0 0 10px var(--warning);
   }
 }
+
+/* Quick Actions in Sidebar Tree */
+.qa-tree-quick-action {
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  background-color: var(--card);
+  border: 1px solid var(--border);
+}
+
+.qa-tree-quick-action:hover {
+  color: var(--brand-accent) !important;
+  background-color: var(--brand-accent-dim) !important;
+  border-color: rgba(96, 165, 250, 0.4) !important;
+  transform: scale(1.1);
+}
+
+.qa-tree-quick-action.signoff:hover {
+  color: var(--success) !important;
+  background-color: var(--success-dim) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+}
+
+.qa-tree-quick-action.reopen:hover {
+  color: var(--warning) !important;
+  background-color: var(--warning-dim) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+.qa-tree-folder-header:hover .qa-tree-quick-action,
+.qa-tree-leaf:hover .qa-tree-quick-action {
+  opacity: 1;
+}
