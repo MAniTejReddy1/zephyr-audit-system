@@ -1,4 +1,4 @@
-# Sentinel QA
+# ScopeGuard QA
 
 Tracks Zephyr Scale test-case changes for a configured project folder scope and exposes the audit stream through FastAPI plus a React dashboard.
 
@@ -103,7 +103,7 @@ If you prefer running the servers in separate terminal windows:
 ```
 
 
-This document serves as the complete technical specification, architectural blueprint, and operational documentation for the **Sentinel QA System** designed and implemented for your organization.
+This document serves as the complete technical specification, architectural blueprint, and operational documentation for the **ScopeGuard QA System** designed and implemented for your organization.
 
 ---
 

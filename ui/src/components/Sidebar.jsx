@@ -69,7 +69,7 @@ export default function Sidebar({
           </div>
           {!collapsed && (
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: T.text, letterSpacing: '-.02em', lineHeight: 1.2 }}>Sentinel QA</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: T.text, letterSpacing: '-.02em', lineHeight: 1.2 }}>ScopeGuard QA</div>
               <div style={{ fontSize: 10, color: T.teal, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                 <span style={{ width: 6, height: 6, borderRadius: 6, background: T.teal, display: 'inline-block', animation: 'pulseDot 2s ease-in-out infinite' }}/>
                 Live monitoring

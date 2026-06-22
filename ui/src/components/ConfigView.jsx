@@ -384,7 +384,7 @@ export function LoadingScreen() {
               <div key={i} style={{ width: 12, height: 12, borderRadius: 6, background: [T.blue, T.purple, T.teal][i], animation: `pulse 1.4s ${i * 0.15}s ease-in-out infinite` }}/>
           ))}
         </div>
-        <span style={{ fontSize: 16, color: T.textMuted, fontWeight: 500 }}>Loading Sentinel QA...</span>
+        <span style={{ fontSize: 16, color: T.textMuted, fontWeight: 500 }}>Loading ScopeGuard QA...</span>
       </div>
   );
 }

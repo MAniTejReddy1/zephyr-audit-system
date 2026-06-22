@@ -863,7 +863,7 @@ async def run_recursive_sync():
 
     sync_run = await start_sync_run()
     if not sync_run: return
-    logger.info("Starting Sentinel QA sync for project %s", settings.zephyr_project_key)
+    logger.info("Starting ScopeGuard sync for project %s", settings.zephyr_project_key)
 
     headers = {"Authorization": f"Bearer {settings.zephyr_api_token}", "Content-Type": "application/json"}
     transport = httpx.AsyncHTTPTransport(retries=3)
@@ -1076,7 +1076,7 @@ async def run_recursive_sync_with_status():
         raise
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Sentinel QA Poller")
+    parser = argparse.ArgumentParser(description="ScopeGuard Poller")
     parser.add_argument("--reset", action="store_true", help="Purge all data from the database tables.")
     parser.add_argument("--backfill-actors", action="store_true", help="Backfill audit_log actor fields from TM4J history (requires TM4J_JWT).")
     args = parser.parse_args()

@@ -10,7 +10,7 @@ from config import get_settings
 settings = get_settings()
 engine = create_engine(settings.sync_database_url)
 
-st.set_page_config(page_title="Sentinel QA Pro", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="ScopeGuard QA Pro", layout="wide", page_icon="🛡️")
 
 # --- CUSTOM CSS FOR GITHUB-LIKE UI ---
 st.markdown("""
