@@ -3,7 +3,7 @@
 # Exit on error
 set -e
 
-echo "🚀 Starting Zephyr Audit System..."
+echo "🚀 Starting Sentinel QA System..."
 
 # 1. Ensure we are in the project root
 cd "$(dirname "$0")"

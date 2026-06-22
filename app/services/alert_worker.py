@@ -28,7 +28,7 @@ def build_slack_payload(logs: list[AuditLog]) -> dict[str, Any]:
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": f"Zephyr Audit Alert ({len(logs)} changes)",
+                "text": f"Sentinel QA Alert ({len(logs)} changes)",
             },
         },
         {

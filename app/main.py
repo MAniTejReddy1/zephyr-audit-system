@@ -88,7 +88,7 @@ async def lifespan(app: FastAPI):
 
 
 
-app = FastAPI(title="Zephyr Audit API", lifespan=lifespan)
+app = FastAPI(title="Sentinel QA API", lifespan=lifespan)
 
 # CORS middleware configuration
 app.add_middleware(
