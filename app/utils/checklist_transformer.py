@@ -1,254 +1,302 @@
 import re
 import html
-from typing import List, Dict, Any, Optional
+from html.parser import HTMLParser
+from typing import Optional, List, Dict, Any, Union
 
 CURRENT_TRANSFORM_VERSION = 2
 
-# Standard fallback configuration if DB seed is not loaded
-DEFAULT_FILLER_VERBS = [
-    "verify that", "check that", "ensure", "validate", "verify", 
-    "check", "to verify", "to check", "to ensure", "assert that", "assert"
+# ── configurable defaults ──────────────────────────────────────────────
+DEFAULT_FILLER_VERBS: List[str] = [
+    r'verify\s+that\s+(user\s+is\s+able\s+to\s+)?',
+    r'verify\s+(user\s+is\s+able\s+to\s+)?',
+    r'check\s+(?:if|that|whether)\s+',
+    r'ensure\s+(?:that\s+)?',
+    r'validate\s+(?:that\s+)?',
+    r'assert\s+(?:that\s+)?',
+    r'confirm\s+(?:that\s+)?',
+    r'test\s+(?:that\s+|whether\s+|if\s+)?',
+    # Standalone verbs and optional leading "to" (plain strings to allow boundary matching)
+    'verify',
+    'to verify',
+    'check',
+    'to check',
+    'ensure',
+    'to ensure',
+    'validate',
+    'to validate',
+    'assert',
+    'to assert',
+    'confirm',
+    'to confirm',
+    'given',
 ]
 
-DEFAULT_GENERIC_WORDS = [
-    "web", "functional", "regression", "sanity", "test cases", 
-    "mobile", "android", "ios", "api", "integration", "test", "cases", "automated"
+DEFAULT_NOISE_SEGMENTS: set[str] = {
+    'web', 'functional', 'regression', 'sanity', 'smoke',
+    'test cases', 'test case', 'tests', 'suite', 'misc',
+    'general', 'other', 'common', 'all', 'master',
+}
+
+# Keep this alias/definition for backwards compatibility of generic_words / noise_words
+DEFAULT_GENERIC_WORDS: List[str] = [
+    'web', 'functional', 'regression', 'sanity', 'test cases',
+    'mobile', 'android', 'ios', 'api', 'integration', 'test', 'cases', 'automated'
 ]
 
+ACRONYMS: set[str] = {
+    'api', 'ios', 'csv', 'ui', 'ux', 'url', 'otp', 'kyc', 'p2p',
+    'tls', 'ssl', 'http', 'https', 'id', 'ids', 'sdk', 'json', 'xml',
+    'usdt', 'btc', 'eth', 'inr', 'tpe', 'coindcx'
+}
+
+MAX_LABEL_LEN: int = 120
+MIN_LABEL_LEN: int = 4
+MAX_PRECOND_LEN: int = 300
+MAX_VERIFICATION_POINTS: int = 10
+
+# ── private helpers ────────────────────────────────────────────────────
+class _StripHTML(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self._parts = []
+    def handle_data(self, data):
+        self._parts.append(data)
+    def get_text(self):
+        return ' '.join(self._parts).strip()
+
+def _strip_html(raw: str) -> str:
+    parser = _StripHTML()
+    parser.feed(html.unescape(raw or ''))
+    return re.sub(r'\s+', ' ', parser.get_text()).strip()
 
 def clean_html(text: Optional[str]) -> str:
-    """Helper to remove HTML tags and unescape entities."""
-    if not text:
-        return ""
-    # Remove HTML tags
-    cleaned = re.sub(r'<[^>]*>', ' ', text)
-    # Unescape HTML entities (like &nbsp;, &lt;, &gt;, &amp;)
-    cleaned = html.unescape(cleaned)
-    # Collapse multiple whitespaces
-    cleaned = re.sub(r'\s+', ' ', cleaned)
-    return cleaned.strip()
+    """Helper to remove HTML tags and unescape entities. (backwards-compatible alias)"""
+    return _strip_html(text or '')
 
+def _fix_acronyms(text: str) -> str:
+    def replacer(m):
+        word = m.group(0)
+        if word.lower() == 'ios':
+            return 'iOS'
+        return word.upper() if word.lower() in ACRONYMS else word
+    return re.sub(r'\b[a-zA-Z]+\b', replacer, text)
 
-def clean_checklist_label(raw_name: str, filler_verbs: Optional[List[str]] = None) -> str:
-    """
-    Cleans raw test case name by stripping project IDs, tags, filler verbs, and trailing OS/browser noise.
-    Processes sentences by extracting the primary logical clause before transitional words/conjunctions.
-    Caps at 120 characters at word boundary, avoiding aggressive truncation.
-    """
-    if not raw_name or not raw_name.strip():
+def _build_filler_pattern(verbs: List[str]) -> re.Pattern:
+    if not verbs:
+        return re.compile(r'^$')
+    
+    processed = []
+    for v in verbs:
+        # Check if it's already a regex pattern
+        if any(c in v for c in ('\\', '(', ')', '?', '+', '*', '|')):
+            processed.append(v)
+        else:
+            escaped = re.escape(v.strip())
+            pattern = re.sub(r'\\\s+', r'\\s+', escaped)
+            processed.append(pattern + r'(?:\b|\s+)')
+    
+    processed = sorted(processed, key=len, reverse=True)
+    return re.compile(r'^(?:' + '|'.join(processed) + r')', re.IGNORECASE)
+
+STEP_NUM_RE = re.compile(r'^\d+[\.\)]\s*')
+
+# ── public API ─────────────────────────────────────────────────────────
+def clean_checklist_label(
+    raw_name: str,
+    filler_verbs: Optional[List[str]] = None,
+) -> str:
+    if not raw_name or not isinstance(raw_name, str) or not raw_name.strip():
         return "Untitled checklist item"
 
-    cleaned = raw_name.strip()
+    # Step 1 — Whitespace normalisation
+    name = raw_name.strip()
+    name = name.replace('_', ' ')
+    name = re.sub(r'\s+', ' ', name)
 
-    # 1. Replace underscores with spaces and collapse spaces
-    cleaned = cleaned.replace("_", " ")
-    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    # Step 2 — Strip leading IDs and bracket-wrapped keys
+    # Leading/trailing bracket keys: [PROJ-T12], [JIRA-123]
+    name = re.sub(r'^\[[A-Z]+-[A-Z]?\d+\]\s*', '', name, flags=re.IGNORECASE)
 
-    # 2. Strip leading test case IDs/brackets: e.g. TC-001_, TC_123_, [PROJ-T12], T42 -
-    cleaned = re.sub(r'^\[[^\]]+\]\s*', '', cleaned)
-    cleaned = re.sub(r'^(TC[-_]?\d+|[A-Z]+[-_]?T?\d+)\b\s*[-_:]*\s*', '', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'^\d+\s*[-_:]\s*', '', cleaned)
+    # Leading TC-001_, T001_, etc. (support hyphen between prefix and digits, and space/underscore/hyphen separator after)
+    name = re.sub(r'^[A-Z]{0,6}[-_]?\d+[-_\s]*', '', name, flags=re.IGNORECASE)
 
-    # 2.5 Strip JIRA keys: e.g. [JIRA-1234], PROJ-1234 -, JIRA-1234:
-    cleaned = re.sub(r'\[[A-Z]+-\d+\]\s*', '', cleaned)
-    cleaned = re.sub(r'\b[A-Z]+-\d+\b\s*[-_:]*\s*', '', cleaned)
+    # Embedded JIRA keys mid-string: [JIRA-1234] or PROJ-1234 -
+    name = re.sub(r'\[[A-Z]+-\d+\]', '', name, flags=re.IGNORECASE)
+    name = re.sub(r'\b[A-Z]{2,6}-\d+\s*-\s*', '', name)
+    name = name.strip()
 
-    # 3. Strip tags in brackets or parentheses
-    cleaned = re.sub(r'\[(regression|sanity|smoke|p\d|high|medium|low|prod|stage)\]', '', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'\((regression|sanity|smoke|p\d|high|medium|low|prod|stage)\)', '', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-
-    # 4. Extract first logical clause before transitional words/punctuation
-    # Divide sentences by comma-then, semicolon, dash, or conjunctions like "so that", "in order to"
-    # only if the first part is at least 8 characters long to prevent overly aggressive truncation.
-    # Note: We do NOT split on conditional words like "if", "unless", "because", or "depending on"
-    # as they represent critical test conditions.
-    dividers = [
-        r'\s*;\s*',
-        r'\s+-\s+',
-        r'\s+–\s+',
-        r'\s+—\s+',
-        r'\bso\s+that\b',
-        r'\bin\s+order\s+to\b',
-    ]
-    pattern = '|'.join(dividers)
-    parts = re.split(pattern, cleaned, flags=re.IGNORECASE)
-    if parts and len(parts[0].strip()) >= 8:
-        cleaned = parts[0].strip()
-
-    # 5. Strip filler verbs and common action-inhibiting phrases
-    extended_fillers = [
-        "verify that user is able to", "verify that user can", "verify that",
-        "check that user is able to", "check that user can", "check that",
-        "ensure that user is able to", "ensure that user can", "ensure that",
-        "validate that user is able to", "validate that user can", "validate that",
-        "assert that user is able to", "assert that user can", "assert that",
-        "confirm that user is able to", "confirm that user can", "confirm that",
-        "verify if", "check if", "to verify if", "to check if", "to ensure that",
-        "validate if", "assert if", "confirm if", "confirm", "verify", "check", 
-        "ensure", "validate", "assert", "to verify", "to check", "to ensure",
-        "should be able to", "user is able to", "user can", "is able to", 
-        "are able to", "be able to", "ability to", "verify the ability of"
-    ]
+    # Step 3 — Strip tag tokens
+    try:
+        from app.config import get_settings
+        tag_words = get_settings().tag_words
+    except Exception:
+        tag_words = ("regression", "smoke", "sanity", "p0", "p1", "p2", "p3", "prod", "staging", "dev", "qa", "wip", "skip", "automation")
     
-    verbs = filler_verbs if filler_verbs is not None else extended_fillers
-    if verbs:
-        sorted_verbs = sorted(verbs, key=len, reverse=True)
-        for verb in sorted_verbs:
-            escaped_verb = re.escape(verb)
-            cleaned = re.sub(r'^(?:' + escaped_verb + r')\b\s*', '', cleaned, flags=re.IGNORECASE)
-            cleaned = re.sub(r'^(?:to\s+)?(?:' + escaped_verb + r')\b\s*', '', cleaned, flags=re.IGNORECASE)
+    if tag_words:
+        tag_pattern_str = "|".join(w.strip() if any(c in w for c in "[]()*+?|") else re.escape(w.strip()) for w in tag_words)
+        name = re.sub(r'\[(?:' + tag_pattern_str + r')\]', '', name, flags=re.IGNORECASE)
+        name = re.sub(r'\((?:' + tag_pattern_str + r')\)', '', name, flags=re.IGNORECASE)
+        name = re.sub(r'\s+', ' ', name).strip()
 
-    # 6. Strip trailing browser/OS noise (only matching the noise itself, not trailing actions)
-    cleaned = re.sub(r'\s+(?:on|in)\s+(?:chrome|safari|firefox|edge|ie|android|ios|web|mobile|desktop|windows|mac|linux)(?:\s+(?:v?\d+(?:\.\d+)*|macos|windows|linux|os|browser|devices?))*\b', '', cleaned, flags=re.IGNORECASE)
-
-    # 6.5 Smart replacements for mathematical/comparative phrases
-    cleaned = re.sub(r'\bgreater\s+than\s+or\s+equal\s+to\b', '>=', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'\bless\s+than\s+or\s+equal\s+to\b', '<=', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'\bgreater\s+than\b', '>', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'\bless\s+than\b', '<', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'\bequal\s+to\b', '=', cleaned, flags=re.IGNORECASE)
-
-    # 7. Strip leading articles: "a ", "an ", "the "
-    cleaned = re.sub(r'^(?:the|a|an)\s+', '', cleaned, flags=re.IGNORECASE)
-
-    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-
-    # Fallback to raw if we stripped away too much
-    if len(cleaned) < 4:
-        raw_fallback = re.sub(r'^\[[^\]]+\]\s*', '', raw_name.strip())
-        cleaned = raw_fallback.strip()[:120]
-        if not cleaned:
-            return raw_name.strip()[:120]
-
-    # Truncate to 120 chars at word boundary, back off at most 30 characters
-    if len(cleaned) > 120:
-        truncated = cleaned[:120]
-        last_space = truncated.rfind(' ', 90)
-        if last_space != -1:
-            cleaned = truncated[:last_space].strip()
+    # Step 3.5 — Gherkin assertion extraction (only for Gherkin test cases starting with Given/When)
+    if name.lower().startswith("given ") or name.lower().startswith("when "):
+        then_match = re.search(r'\b(?:then|should)\b\s+(.*)', name, re.IGNORECASE)
+        if then_match:
+            name = then_match.group(1).strip()
         else:
-            cleaned = truncated.strip()
+            when_match = re.search(r'\b(?:when)\b\s+(.*)', name, re.IGNORECASE)
+            if when_match:
+                name = when_match.group(1).strip()
 
-    # 7.5 Capitalize standard acronyms properly
-    acronyms = {
-        r'\binr\b': 'INR',
-        r'\bapi\b': 'API',
-        r'\bios\b': 'iOS',
-        r'\bcsv\b': 'CSV',
-        r'\burl\b': 'URL',
-        r'\bpdf\b': 'PDF',
-        r'\bhtml\b': 'HTML',
-        r'\bjira\b': 'JIRA',
-        r'\bid\b': 'ID',
-        r'\bui\b': 'UI',
-        r'\bux\b': 'UX',
-    }
-    for pattern, repl in acronyms.items():
-        cleaned = re.sub(pattern, repl, cleaned, flags=re.IGNORECASE)
+    # Step 4 — Logical clause extraction (first primary clause only)
+    CLAUSE_SPLIT_RE = re.compile(
+        r'\s*(?:;|'
+        r'\s+-\s+(?=[a-z])|'    # bare " - " only when followed by lowercase (avoids splitting "Login - API")
+        r'\bso\s+that\b|'
+        r'\bin\s+order\s+to\b|'
+        r'\bso\s+as\s+to\b'
+        r').*$',
+        re.IGNORECASE | re.DOTALL
+    )
+    name = CLAUSE_SPLIT_RE.sub('', name).strip()
 
-    # Clean up double spaces or trailing punctuation
-    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-    cleaned = re.sub(r'[.,;:-]+$', '', cleaned).strip()
+    # Step 5 — Filler verb removal
+    verbs_list = filler_verbs if filler_verbs is not None else DEFAULT_FILLER_VERBS
+    filler_pattern = _build_filler_pattern(verbs_list)
+    name = filler_pattern.sub('', name).strip()
 
-    # Ensure sentence-case (first letter uppercase)
-    if cleaned:
-        cleaned = cleaned[0].upper() + cleaned[1:]
+    # Step 6 — Trailing environment noise
+    ENV_NOISE_RE = re.compile(
+        r'\s+(?:on|in|via|using)\s+'
+        r'(?:chrome|firefox|safari|edge|ie|ie\s*\d+|'
+        r'ios(?:\s*v?\d+)?|android(?:\s*v?\d+)?|'
+        r'desktop\s+browser|mobile\s+browser|'
+        r'windows|mac(?:os)?|linux)'
+        r'(?:\s+(?:v?\d+(?:\.\d+)*|macos|windows|linux|os|browser|devices?))*\s*$',
+        re.IGNORECASE
+    )
+    name = ENV_NOISE_RE.sub('', name).strip()
 
-    return cleaned
+    # Step 7 — Math/comparison symbol substitution
+    MATH_SUBS = [
+        (r'\bgreater\s+than\s+or\s+equal\s+to\b', '>='),
+        (r'\bless\s+than\s+or\s+equal\s+to\b',    '<='),
+        (r'\bgreater\s+than\b',                    '>'),
+        (r'\bless\s+than\b',                       '<'),
+        (r'\bnot\s+equal\s+to\b',                  '!='),
+        (r'\bequal\s+to\b',                        '='),
+    ]
+    for pattern, replacement in MATH_SUBS:
+        name = re.sub(pattern, replacement, name, flags=re.IGNORECASE)
 
+    # Step 8 — Leading article removal
+    name = re.sub(r'^(?:a|an|the)\s+', '', name, flags=re.IGNORECASE)
 
-def extract_module(folder_path: Optional[str], generic_words: Optional[List[str]] = None) -> str:
-    """
-    Parses folder path, skips generic folder words, and returns last 2 meaningful segments.
-    Falls back to last segment, or "Uncategorized".
-    """
-    if not folder_path or not folder_path.strip():
+    # Step 9 — Truncation with safety fallback
+    MAX_LEN = MAX_LABEL_LEN
+    MIN_LEN = MIN_LABEL_LEN
+
+    if len(name) > MAX_LEN:
+        truncated = name[:MAX_LEN].rsplit(' ', 1)[0]  # cut at word boundary
+        name = truncated
+
+    # Safety fallback: if cleaning over-stripped, revert to raw minus leading ID
+    if len(name.strip()) < MIN_LEN:
+        # Re-run only steps 1+2 on raw_name and use that
+        fallback = re.sub(r'^[A-Z]{0,6}[-_]?\d+[-_\s]*', '', raw_name, flags=re.IGNORECASE).strip()
+        fallback = re.sub(r'^\[[A-Z]+-[A-Z]?\d+\]\s*', '', fallback, flags=re.IGNORECASE).strip()
+        name = fallback[:MAX_LEN]
+        if not name.strip():
+            name = raw_name.strip()[:MAX_LEN]
+
+    # Step 10 — Acronym fix + sentence case
+    # Sentence case: capitalise first char only
+    name = name[0].upper() + name[1:] if name else name
+    name = _fix_acronyms(name)
+
+    # Clean up double spaces or trailing punctuation (backwards compatibility logic)
+    name = re.sub(r'\s+', ' ', name).strip()
+    name = re.sub(r'[.,;:-]+$', '', name).strip()
+
+    return name
+
+def extract_module(
+    folder_path: Optional[str],
+    noise_words: Optional[Union[set[str], List[str]]] = None,
+) -> str:
+    if not folder_path or not isinstance(folder_path, str):
         return "Uncategorized"
 
-    # Split by common separators: >, /, or ›
-    segments = [s.strip() for s in re.split(r'[>/›]', folder_path) if s.strip()]
-    if not segments:
-        return "Uncategorized"
-
-    skip_words = set(w.lower() for w in (generic_words if generic_words is not None else DEFAULT_GENERIC_WORDS))
-    meaningful = [s for s in segments if s.lower() not in skip_words]
+    if noise_words is not None:
+        noise = {w.lower() for w in noise_words}
+    else:
+        noise = DEFAULT_NOISE_SEGMENTS
+        
+    separators = re.compile(r'\s*[>/›\\]\s*')
+    segments = [s.strip() for s in separators.split(folder_path) if s.strip()]
+    meaningful = [s for s in segments if s.lower() not in noise]
 
     if not meaningful:
-        # Fall back to the very last segment of the original path if everything was filtered out
+        # Fallback: raw last segment
         return segments[-1] if segments else "Uncategorized"
 
-    # Return last 2 segments joined by ' › '
-    if len(meaningful) >= 2:
-        return " › ".join(meaningful[-2:])
-    return meaningful[-1]
+    # Return last two meaningful segments
+    return ' › '.join(meaningful[-2:]) if len(meaningful) >= 2 else meaningful[-1]
 
-
-def extract_verification_points(steps_json: Optional[List[Dict[str, Any]]]) -> List[str]:
-    """
-    Extracts up to 10 unique verification points from test case steps.
-    Each step can be nested under 'inline' or flat.
-    """
-    if not steps_json:
+def extract_verification_points(steps: Optional[List[Any]]) -> List[str]:
+    if not steps:
         return []
 
-    points = []
-    seen = set()
+    seen: set[str] = set()
+    points: List[str] = []
 
-    for step in steps_json:
-        if not isinstance(step, dict):
-            continue
+    for step in steps:
+        # Handle nested inline dict
+        if isinstance(step, dict):
+            step = step.get('inline', step)
+        if isinstance(step, dict):
+            desc_raw = step.get('description') or step.get('step') or ''
+            expected_raw = step.get('expectedResult') or step.get('expected_result') or ''
+            desc = _strip_html(str(desc_raw))
+            expected = _strip_html(str(expected_raw))
+        else:
+            desc = _strip_html(str(step))
+            expected = ''
 
-        # Zephyr sometimes wraps step data under an "inline" dictionary
-        step_data = step.get("inline") if "inline" in step and isinstance(step["inline"], dict) else step
+        desc = STEP_NUM_RE.sub('', desc).strip()
+        expected = STEP_NUM_RE.sub('', expected).strip()
 
-        desc = clean_html(step_data.get("description", ""))
-        expected = clean_html(step_data.get("expectedResult", ""))
-
-        if not desc and not expected:
-            continue
-
-        # Combine description and expected result
         if desc and expected:
             point = f"{desc} → {expected}"
         elif desc:
             point = desc
-        else:
+        elif expected:
             point = expected
-
-        # Remove step numbers if any (e.g. "1. Open app" -> "Open app")
-        point = re.sub(r'^\d+\s*[-:.)]\s*', '', point).strip()
-
-        if not point:
+        else:
             continue
 
-        point_lower = point.lower()
-        if point_lower not in seen:
-            seen.add(point_lower)
+        key = point.lower()
+        if key not in seen:
+            seen.add(key)
             points.append(point)
-
-        if len(points) == 10:
-            break
+            if len(points) == MAX_VERIFICATION_POINTS:
+                break
 
     return points
 
-
-def extract_precondition(raw_snapshot: Optional[Dict[str, Any]]) -> Optional[str]:
-    """
-    Pulls objective or precondition field from raw_snapshot, cleans HTML, and caps at 300 characters.
-    """
-    if not raw_snapshot or not isinstance(raw_snapshot, dict):
+def extract_precondition(raw_tc: Optional[Dict[str, Any]]) -> Optional[str]:
+    if not raw_tc or not isinstance(raw_tc, dict):
         return None
 
-    raw_precond = raw_snapshot.get("precondition") or raw_snapshot.get("objective")
-    if not raw_precond or not isinstance(raw_precond, str):
-        return None
-
-    cleaned = clean_html(raw_precond)
+    raw = raw_tc.get('precondition') or raw_tc.get('objective') or ''
+    cleaned = _strip_html(str(raw))
     if not cleaned:
         return None
-
-    # Cap at 300 characters
-    if len(cleaned) > 300:
-        return cleaned[:297] + "..."
+    if len(cleaned) > MAX_PRECOND_LEN:
+        # Truncate at word boundary within MAX_PRECOND_LEN - 1 to make space for 1-char ellipsis
+        limit = MAX_PRECOND_LEN - 1
+        truncated = cleaned[:limit]
+        if ' ' in truncated:
+            truncated = truncated.rsplit(' ', 1)[0]
+        return truncated + '…'
     return cleaned

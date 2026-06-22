@@ -66,6 +66,12 @@ class TestCaseStateOut(BaseModel):
     is_deleted: bool
 
 
+class TestCaseStateDetailOut(TestCaseStateOut):
+    raw_snapshot: Optional[dict[str, Any]] = None
+    steps_json: Optional[list[Any]] = None
+
+
+
 class UserProfile(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -157,6 +163,7 @@ class ChecklistItemListOut(ChecklistItemBase):
 
 
 class ChecklistItemDetailOut(ChecklistItemListOut):
+    test_case: Optional[TestCaseStateDetailOut] = None
     verification_points: List[str] = []
     precondition: Optional[str] = None
 

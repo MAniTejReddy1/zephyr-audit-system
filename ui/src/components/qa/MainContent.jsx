@@ -578,8 +578,87 @@ const MainContent = ({
                 {overallCompletion === 100 ? 'Signed Off' : 'Active'}
               </span>
             </div>
+            
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => setIsReportOpen(true)} className="qa-btn-secondary" style={{ padding: '8px 16px', fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
+                <FileText size={15}/> View Report
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Release Timeline Flow (Moved to top for macro view) */}
+        {isRelease && versionsList.length > 0 && (
+          <div style={{ backgroundColor: 'var(--brand-accent-dim)', border: '1px solid rgba(96, 165, 250, 0.2)', borderRadius: '16px', padding: '24px', marginBottom: '32px' }}>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--brand-accent)', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Activity size={18} />
+              <span>Release Sequence Pipeline</span>
+            </div>
+            <div className="qa-pipeline-container" style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', paddingBottom: '12px' }}>
+              {versionsList.map((ver, idx) => {
+                const isVerCompleted = ver.progress === 100;
+                
+                let dotColor = 'var(--border)';
+                if (isVerCompleted) {
+                  dotColor = 'var(--success)';
+                } else if (ver.progress > 0) {
+                  dotColor = 'var(--brand-accent)';
+                }
+                
+                return (
+                  <React.Fragment key={ver.verName}>
+                    {idx > 0 && (
+                      <div 
+                        className={`qa-pipeline-connector`} 
+                        style={{ 
+                          height: '3px', 
+                          minWidth: '80px', 
+                          flexGrow: 1, 
+                          backgroundColor: isVerCompleted ? 'var(--success)' : 'rgba(96, 165, 250, 0.3)' 
+                        }} 
+                      />
+                    )}
+                    <div 
+                      className={`qa-pipeline-node ${isVerCompleted ? 'completed' : ''}`}
+                      onClick={() => setActiveSelection({ type: 'version', rcName: activeSelection.name, verName: ver.verName })}
+                      style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center', 
+                        gap: '10px', 
+                        minWidth: '150px', 
+                        cursor: 'pointer', 
+                        padding: '16px 12px', 
+                        borderRadius: '12px', 
+                        transition: 'all 0.2s ease',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        backgroundColor: 'var(--card)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                      }}
+                    >
+                      <div 
+                        className="qa-pipeline-dot" 
+                        style={{ 
+                          width: '16px', 
+                          height: '16px', 
+                          borderRadius: '50%', 
+                          backgroundColor: dotColor, 
+                          border: '3px solid var(--card)',
+                          boxShadow: ver.progress > 0 && !isVerCompleted ? '0 0 12px var(--brand-accent)' : 'none'
+                        }} 
+                      />
+                      <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>{ver.verName}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{ver.progress}% Complete</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{ver.completedSquads}/{ver.totalSquads} squads</span>
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* KPI Grid */}
         <div className="qa-dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '32px' }}>
@@ -662,76 +741,6 @@ const MainContent = ({
                   </div>
                 )
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* Release Timeline Flow */}
-        {isRelease && versionsList.length > 0 && (
-          <div style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '20px 24px', marginBottom: '32px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 750, color: 'var(--text-primary)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Activity size={16} color="var(--brand-accent)" />
-              <span>Release Sequence Pipeline</span>
-            </div>
-            <div className="qa-pipeline-container" style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', paddingBottom: '8px' }}>
-              {versionsList.map((ver, idx) => {
-                const isVerCompleted = ver.progress === 100;
-                const isActive = activeSelection.type === 'version' && activeSelection.verName === ver.verName;
-                
-                let dotColor = 'var(--border)';
-                if (isVerCompleted) {
-                  dotColor = 'var(--success)';
-                } else if (ver.progress > 0) {
-                  dotColor = 'var(--brand-accent)';
-                }
-                
-                return (
-                  <React.Fragment key={ver.verName}>
-                    {idx > 0 && (
-                      <div 
-                        className={`qa-pipeline-connector`} 
-                        style={{ 
-                          height: '2px', 
-                          minWidth: '60px', 
-                          flexGrow: 1, 
-                          backgroundColor: isVerCompleted ? 'var(--success)' : 'var(--border)' 
-                        }} 
-                      />
-                    )}
-                    <div 
-                      className={`qa-pipeline-node ${isVerCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}`}
-                      onClick={() => setActiveSelection({ type: 'version', rcName: activeSelection.name, verName: ver.verName })}
-                      style={{ 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'center', 
-                        gap: '8px', 
-                        minWidth: '130px', 
-                        cursor: 'pointer', 
-                        padding: '12px 8px', 
-                        borderRadius: '10px', 
-                        transition: 'all 0.2s ease',
-                        border: isActive ? '1px solid var(--brand-accent)' : '1px solid transparent',
-                        backgroundColor: isActive ? 'var(--brand-accent-dim)' : 'transparent'
-                      }}
-                    >
-                      <div 
-                        className="qa-pipeline-dot" 
-                        style={{ 
-                          width: '12px', 
-                          height: '12px', 
-                          borderRadius: '50%', 
-                          backgroundColor: dotColor, 
-                          boxShadow: isActive ? '0 0 10px var(--brand-accent)' : 'none',
-                          border: '3px solid var(--card)'
-                        }} 
-                      />
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{ver.verName}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{ver.progress}% Complete</span>
-                    </div>
-                  </React.Fragment>
-                );
-              })}
             </div>
           </div>
         )}
@@ -1069,12 +1078,6 @@ const MainContent = ({
                 )}
               </div>
             </div>
-          </div>
-          
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={() => setIsReportOpen(true)} className="qa-btn-secondary" style={{ padding: '8px 16px', fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
-              <FileText size={15}/> View Report
-            </button>
           </div>
         </div>
 

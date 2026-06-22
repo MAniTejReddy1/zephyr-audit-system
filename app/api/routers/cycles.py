@@ -81,6 +81,64 @@ async def get_release_cycles(db: AsyncSession = Depends(get_db)):
     return result.scalars().unique().all()
 
 
+@router.get("/api/cycles/preview_import_count", dependencies=[Depends(require_api_key)])
+async def preview_import_count(
+    folder_id: List[int] = Query(...),
+    case_type: Optional[str] = Query(None),
+    priorities: Optional[List[str]] = Query(None),
+    labels: Optional[List[str]] = Query(None),
+    db: AsyncSession = Depends(get_db)
+):
+    # 1. Get the selected folders
+    folder_result = await db.execute(select(FolderMap).where(FolderMap.folder_id.in_(folder_id)))
+    folders = folder_result.scalars().all()
+    if not folders:
+        return {"count": 0}
+
+    # 2. Find all test cases in these folders OR sub-folders
+    conditions = []
+    for folder in folders:
+        path_prefix = folder.full_path
+        conditions.append(TestCaseState.folder_id == folder.folder_id)
+        conditions.append(TestCaseState.folder_path.like(f"{path_prefix} > %"))
+
+    stmt = select(TestCaseState).where(
+        TestCaseState.is_deleted == False,
+        or_(*conditions)
+    )
+
+    if case_type == "automated":
+        automated_json_expr = """(
+        (lower(trim(coalesce(raw_snapshot #>> '{customFields,is_automated_in_api}', ''))) IN ('yes','true','1','y'))
+        OR (lower(trim(coalesce(raw_snapshot #>> '{customFields,is_automated_in_app}', ''))) IN ('yes','true','1','y'))
+        )"""
+        stmt = stmt.where(text(automated_json_expr))
+    elif case_type == "manual":
+        automated_json_expr = """(
+        (lower(trim(coalesce(raw_snapshot #>> '{customFields,is_automated_in_api}', ''))) IN ('yes','true','1','y'))
+        OR (lower(trim(coalesce(raw_snapshot #>> '{customFields,is_automated_in_app}', ''))) IN ('yes','true','1','y'))
+        )"""
+        stmt = stmt.where(or_(
+            text(f"NOT {automated_json_expr}"),
+            TestCaseState.raw_snapshot.is_(None)
+        ))
+
+    if priorities:
+        cond = [TestCaseState.priority.in_(priorities)]
+        if "Normal" in priorities:
+            cond.append(TestCaseState.priority.is_(None))
+            cond.append(TestCaseState.priority == "")
+        stmt = stmt.where(or_(*cond))
+
+    if labels:
+        stmt = stmt.where(or_(*[TestCaseState.raw_snapshot['labels'].contains([lbl.lower()]) for lbl in labels]))
+
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    result = await db.execute(count_stmt)
+    total_count = result.scalar() or 0
+    return {"count": total_count}
+
+
 @router.get("/api/cycles/{cycle_id}", response_model=ReleaseCycleOut, dependencies=[Depends(require_api_key)])
 async def get_release_cycle(cycle_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -208,65 +266,6 @@ async def regenerate_checklist_item(cycle_id: int, item_id: int, db: AsyncSessio
     await manager.broadcast(f'{{"type": "item_update", "data": {ChecklistItemListOut.model_validate(db_item).model_dump_json()}}}', cycle_id)
 
     return db_item
-
-
-
-@router.get("/api/cycles/preview_import_count", dependencies=[Depends(require_api_key)])
-async def preview_import_count(
-    folder_id: List[int] = Query(...),
-    case_type: Optional[str] = Query(None),
-    priorities: Optional[List[str]] = Query(None),
-    labels: Optional[List[str]] = Query(None),
-    db: AsyncSession = Depends(get_db)
-):
-    # 1. Get the selected folders
-    folder_result = await db.execute(select(FolderMap).where(FolderMap.folder_id.in_(folder_id)))
-    folders = folder_result.scalars().all()
-    if not folders:
-        return {"count": 0}
-
-    # 2. Find all test cases in these folders OR sub-folders
-    conditions = []
-    for folder in folders:
-        path_prefix = folder.full_path
-        conditions.append(TestCaseState.folder_id == folder.folder_id)
-        conditions.append(TestCaseState.folder_path.like(f"{path_prefix} > %"))
-
-    stmt = select(TestCaseState).where(
-        TestCaseState.is_deleted == False,
-        or_(*conditions)
-    )
-
-    if case_type == "automated":
-        automated_json_expr = """(
-        (lower(trim(coalesce(raw_snapshot #>> '{customFields,is_automated_in_api}', ''))) IN ('yes','true','1','y'))
-        OR (lower(trim(coalesce(raw_snapshot #>> '{customFields,is_automated_in_app}', ''))) IN ('yes','true','1','y'))
-        )"""
-        stmt = stmt.where(text(automated_json_expr))
-    elif case_type == "manual":
-        automated_json_expr = """(
-        (lower(trim(coalesce(raw_snapshot #>> '{customFields,is_automated_in_api}', ''))) IN ('yes','true','1','y'))
-        OR (lower(trim(coalesce(raw_snapshot #>> '{customFields,is_automated_in_app}', ''))) IN ('yes','true','1','y'))
-        )"""
-        stmt = stmt.where(or_(
-            text(f"NOT {automated_json_expr}"),
-            TestCaseState.raw_snapshot.is_(None)
-        ))
-
-    if priorities:
-        cond = [TestCaseState.priority.in_(priorities)]
-        if "Normal" in priorities:
-            cond.append(TestCaseState.priority.is_(None))
-            cond.append(TestCaseState.priority == "")
-        stmt = stmt.where(or_(*cond))
-
-    if labels:
-        stmt = stmt.where(or_(*[TestCaseState.raw_snapshot['labels'].contains([lbl.lower()]) for lbl in labels]))
-
-    count_stmt = select(func.count()).select_from(stmt.subquery())
-    result = await db.execute(count_stmt)
-    total_count = result.scalar() or 0
-    return {"count": total_count}
 
 
 

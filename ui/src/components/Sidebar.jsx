@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 import { T, useTheme } from '../theme';
-import { fmtDate, describeDelta, isUnknownActor } from '../utils';
+import { fmtDate, describeDelta, isUnknownActor, apiFetch } from '../utils';
 
 export default function Sidebar({
   nav, onNav, stats, lastSync, onRefresh, collapsed, onToggleCollapse,
@@ -40,8 +40,15 @@ export default function Sidebar({
 
   const handleSync = async () => {
     setSyncing(true);
-    await onRefresh();
-    setSyncing(false);
+    try {
+      await apiFetch('/sync/run?source=manual', { method: 'POST' });
+      await new Promise(r => setTimeout(r, 2000));
+      await onRefresh();
+    } catch (e) {
+      console.error('Sync error:', e);
+    } finally {
+      setSyncing(false);
+    }
   };
 
   return (

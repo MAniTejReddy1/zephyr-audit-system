@@ -39,7 +39,11 @@ async def trigger_sync(source: str = Query(default="manual", pattern="^(manual|a
     try:
         env = os.environ.copy()
         env["ZEPHYR_SYNC_SOURCE"] = source
-        subprocess.Popen([sys.executable, poller_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, env=env)
+        # Add project root to PYTHONPATH so it can find the 'app' module
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        env["PYTHONPATH"] = project_root + (os.pathsep + env.get("PYTHONPATH", "") if "PYTHONPATH" in env else "")
+        log_file = open("poller.log", "w")
+        subprocess.Popen([sys.executable, poller_path], stdout=log_file, stderr=log_file, start_new_session=True, env=env)
         return {"status": "success", "message": "Sync triggered."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed: {str(e)}")

@@ -24,53 +24,61 @@ Tracks Zephyr Scale test-case changes for a configured project folder scope and 
 
 ## Running the Application Locally
 
-To get the Zephyr Audit System up and running on your local machine, follow these steps. You will need multiple terminal windows.
+### Method 1: The Simple Way (Recommended)
 
-### Terminal 1: Start the Backend Services
+To start both the backend FastAPI server and frontend React/Vite server concurrently (along with the Docker database), simply run the startup script from the root directory:
 
-1.  **Start the Database:**
-    Use Docker to run the PostgreSQL database in the background.
+```bash
+./start.sh
+```
 
-    ```bash
-    docker compose up -d db
-    ```
+This script will automatically:
+1. Verify virtual environment existence.
+2. Spin up the PostgreSQL database in Docker.
+3. Check if ports `8000` or `5173` are in use and clear them to prevent serving outdated assets.
+4. Launch uvicorn and Vite.
+5. Exit both cleanly when you press `Ctrl+C`.
 
-2.  **Run the Initial Data Sync:**
-    This command populates the database with test case data from Zephyr Scale. Let it complete before proceeding.
+---
 
-    ```bash
-    ./venv/bin/python poller.py
-    ```
+### Method 2: Manual Startup (Using Multiple Terminals)
 
-3.  **Start the Backend API Server:**
-    This will start the FastAPI server on `http://localhost:8000`. The `--reload` flag enables auto-reloading on code changes.
+If you prefer running the servers in separate terminal windows:
 
-    ```bash
-    ./venv/bin/uvicorn api:app --reload
-    ```
+#### Terminal 1: Start the Backend Services
 
-### Terminal 2: Start the Frontend UI
+1. **Start the Database:**
+   ```bash
+   docker compose up -d db
+   ```
 
-1.  **Navigate to the UI directory:**
+2. **Run the Initial Data Sync:**
+   ```bash
+   ./venv/bin/python poller.py
+   ```
 
-    ```bash
-    cd ui
-    ```
+3. **Start the Backend API Server:**
+   This starts the FastAPI server on `http://localhost:8000`.
+   ```bash
+   ./venv/bin/uvicorn app.main:app --reload --port 8000
+   ```
 
-2.  **Install Frontend Dependencies:**
+#### Terminal 2: Start the Frontend UI
 
-    ```bash
-    npm install
-    ```
+1. **Navigate to the UI directory and install dependencies (if not already done):**
+   ```bash
+   cd ui && npm install
+   ```
 
-3.  **Start the React Development Server:**
-    This will launch the UI, which will be accessible at `http://localhost:5173` (or another port if 5173 is busy).
+2. **Start the React Development Server:**
+   This launches the UI on `http://localhost:5173`.
+   ```bash
+   npm run dev
+   ```
 
-    ```bash
-    npm run dev
-    ```
-
-After running these steps, the application should be fully functional on your local machine.
+> [!IMPORTANT]
+> If port `5173` is already in use by a background Node/Vite process, Vite will automatically fall back to `http://localhost:5174/`. 
+> Always make sure to stop previous instances (using `kill -9 $(lsof -t -i:5173)` or running `./start.sh` which checks this automatically) to prevent loading outdated code.
 
 ## Operational Notes
 

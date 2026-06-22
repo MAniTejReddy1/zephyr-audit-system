@@ -27,6 +27,21 @@ const ACTION_CHIPS = [
 ];
 
 function StaleBanner({ latestPollTs, onRefresh }) {
+  const [syncing, setSyncing] = useState(false);
+  const handleSync = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      await apiFetch('/sync/run?source=manual', { method: 'POST' });
+      await new Promise(r => setTimeout(r, 2000));
+      await onRefresh();
+    } catch (e) {
+      console.error('Sync error:', e);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 9, padding: '8px 14px',
@@ -36,12 +51,12 @@ function StaleBanner({ latestPollTs, onRefresh }) {
         <span style={{ flex: 1, fontSize: 11, color: T.text, fontWeight: 500 }}>
         Data may be stale — last sync {relativeTime(latestPollTs)}.
       </span>
-        <button onClick={onRefresh} style={{
+        <button onClick={handleSync} style={{
           display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 7,
           border: `1px solid ${T.yellow}60`, background: 'transparent', color: T.yellowDark || T.yellow,
-          fontSize: 11, fontWeight: 600, cursor: 'pointer',
+          fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: syncing ? 0.7 : 1
         }}>
-          <RefreshCw size={11}/> Sync now
+          <RefreshCw size={11} style={syncing ? { animation: 'spin 1s linear infinite' } : {}}/> {syncing ? 'Syncing...' : 'Sync now'}
         </button>
       </div>
   );
@@ -331,7 +346,7 @@ export default function LiveStreamView({ polls, actors, folders, filters, onFilt
                 Poll #{selectedPoll.poll_number ?? '—'} · {fmtDate(selectedPoll.poll_timestamp, 'card')}
               </span>
                 </div>
-                <PollChangesPanel poll={selectedPoll} selectedLog={selectedLog} onSelectLog={onSelectLog} presetPollActionDisplay={pollPresetDisplayAction}/>
+                <PollChangesPanel poll={selectedPoll} selectedLog={selectedLog} onSelectLog={onSelectLog} resolveUser={resolveUser} presetPollActionDisplay={pollPresetDisplayAction}/>
               </>
           ) : drillLabel ? (
               <MergedChangesPanel drillLabel={drillLabel} filters={filters} resolveUser={resolveUser} onSelectLog={onSelectLog} selectedLog={selectedLog}/>
@@ -567,7 +582,7 @@ function MergedChangesPanel({ drillLabel, filters, resolveUser, onSelectLog, sel
               entries.map((log, i) => {
                 const cfg = actionConfig(log);
                 const Icon = cfg.icon;
-                const actor = resolveUser(log.actor_name, log.actor_account);
+                const actor = typeof resolveUser === 'function' ? resolveUser(log.actor_name, log.actor_account) : log.actor_name;
                 const isSel = selectedLog?.id && selectedLog.id === log.id;
                 return (
                     <button
@@ -897,8 +912,8 @@ function ChangeItem({ log, isSelected, onClick, resolveUser }) {
 
 function auditActorName(log, resolveUser) {
   if (!log?.actor_name && !log?.actor_account) return 'Unknown Modifier';
-  const resolved = resolveUser(log.actor_name, log.actor_account);
-  return resolved === 'Unassigned' ? 'Unknown Modifier' : resolved;
+  const resolved = typeof resolveUser === 'function' ? resolveUser(log.actor_name, log.actor_account) : log.actor_name;
+  return resolved === 'Unassigned' || !resolved ? (log.actor_name || 'Unknown Modifier') : resolved;
 }
 
 function DiffDetailView({ log, resolveUser }) {
@@ -1046,8 +1061,8 @@ function buildStructuredChanges(before, after, resolveUser) {
       .sort()
       .forEach(key => push('custom', key, formatFieldName(key), beforeCustom[key], afterCustom[key]));
 
-  const beforeScript = normalizeScriptRows(before.testSteps || before.steps || before.script || before.testScript);
-  const afterScript = normalizeScriptRows(after.testSteps || after.steps || after.script || after.testScript);
+  const beforeScript = normalizeScriptRows(before.testSteps || before.steps || before.script || before.testScript, resolveUser);
+  const afterScript = normalizeScriptRows(after.testSteps || after.steps || after.script || after.testScript, resolveUser);
   const maxRows = Math.max(beforeScript.length, afterScript.length);
   for (let i = 0; i < maxRows; i++) push('steps', `step-${i}`, `Step ${i + 1}`, beforeScript[i], afterScript[i], 'step');
 
@@ -1068,7 +1083,7 @@ function readableValueForField(key, value, resolveUser) {
 
 function userDisplayValue(value, resolveUser) {
   if (value === null || value === undefined || value === '') return '';
-  if (!resolveUser) return '';
+  if (typeof resolveUser !== 'function') return String(value?.displayName || value?.name || value || '');
   if (typeof value === 'object') {
     const account = value.accountId || value.account_id || value.id || value.key;
     const name = value.displayName || value.name || value.emailAddress;
@@ -1110,11 +1125,11 @@ function cleanDisplayText(value) {
       .trim();
 }
 
-function normalizeScriptRows(script) {
+function normalizeScriptRows(script, resolveUser) {
   if (!script) return [];
   const rows = Array.isArray(script) ? script : (script.steps || script.testSteps || script.inline?.steps || script.plainText || script.text || script);
   if (typeof rows === 'string') return [rows];
-  if (!Array.isArray(rows)) return [readableValue(rows)].filter(Boolean);
+  if (!Array.isArray(rows)) return [readableValue(rows, resolveUser)].filter(Boolean);
   return rows.map((step) => {
     if (typeof step === 'string') return step;
     const inline = step.inline || step;
@@ -1123,7 +1138,7 @@ function normalizeScriptRows(script) {
       ['Test Data', inline.testData || inline.data],
       ['Expected Result', inline.expectedResult || inline.expected || inline.result],
     ].filter(([, v]) => v !== null && v !== undefined && v !== '');
-    return fields.length ? fields.map(([k, v]) => `${k}: ${readableValue(v)}`).join(NEWLINE) : readableValue(step);
+    return fields.length ? fields.map(([k, v]) => `${k}: ${readableValue(v, resolveUser)}`).join(NEWLINE) : readableValue(step, resolveUser);
   });
 }
 

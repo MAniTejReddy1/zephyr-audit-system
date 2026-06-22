@@ -64,7 +64,7 @@ class ChecklistTransformerTest(unittest.TestCase):
         
         # When cleaning strips everything
         # e.g., name is only "TC-123 Verify"
-        self.assertEqual(clean_checklist_label("TC-123 [Regression] Verify"), "TC-123 [Regression] Verify")
+        self.assertEqual(clean_checklist_label("TC-123 [Regression] Verify"), "[Regression] Verify")
 
     def test_clean_checklist_label_capsule(self):
         self.assertEqual(clean_checklist_label("Verify 100% capsule name integrity"), "100% capsule name integrity")
@@ -159,11 +159,24 @@ class ChecklistTransformerTest(unittest.TestCase):
         snap3 = {"precondition": long_precond}
         extracted = extract_precondition(snap3)
         self.assertEqual(len(extracted), 300)
-        self.assertTrue(extracted.endswith("..."))
+        self.assertTrue(extracted.endswith("…"))
         
         # Empty/None preconditions
         self.assertIsNone(extract_precondition(None))
         self.assertIsNone(extract_precondition({}))
+
+    def test_clean_checklist_label_gherkin(self):
+        # Full Gherkin style (Given-When-Then)
+        raw = "Given BTCUSDT position is under liquidation, When user places an order on ETHUSDT, Then ETHUSDT order must be accepted without restriction."
+        self.assertEqual(clean_checklist_label(raw), "ETHUSDT order must be accepted without restriction")
+
+        # Gherkin style with uppercase acronyms and underscores
+        raw2 = "Given a user has USDT wallet with total_balance >= Y(Configured), When fetching user_product_config, Then active_futures_wallet_currency is set to USDT."
+        self.assertEqual(clean_checklist_label(raw2), "Active futures wallet currency is set to USDT")
+
+        # Given only style (no When/Then)
+        raw3 = "Given a single active USDT long position is visible"
+        self.assertEqual(clean_checklist_label(raw3), "Single active USDT long position is visible")
 
 
 if __name__ == "__main__":

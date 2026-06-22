@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, createContext, useContext } from 'react';
+import { flushSync } from 'react-dom';
 import {
   Plus, GitCommit, Move, RefreshCw, AlertTriangle, Trash2
 } from 'lucide-react';
@@ -151,7 +152,49 @@ export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = usePersistentState('theme_isDark', true, { shared: true });
   const theme = isDark ? darkTheme : lightTheme;
   setActiveTheme(theme);
-  const toggleTheme = useCallback(() => { setIsDark(prev => !prev); }, [setIsDark]);
+  const toggleTheme = useCallback((e) => {
+    const isDarkNext = !isDark;
+    
+    // Fallback for browsers that don't support View Transitions or prefer reduced motion
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!document.startViewTransition || prefersReducedMotion) {
+      document.documentElement.classList.add('theme-transition');
+      setIsDark(isDarkNext);
+      setTimeout(() => document.documentElement.classList.remove('theme-transition'), 400);
+      return;
+    }
+
+    const x = e?.clientX ?? window.innerWidth / 2;
+    const y = e?.clientY ?? window.innerHeight / 2;
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    );
+
+    const transition = document.startViewTransition(() => {
+      flushSync(() => {
+        setIsDark(isDarkNext);
+      });
+    });
+
+    transition.ready.then(() => {
+      const clipPath = [
+        `circle(0px at ${x}px ${y}px)`,
+        `circle(${endRadius}px at ${x}px ${y}px)`,
+      ];
+
+      document.documentElement.animate(
+        {
+          clipPath: clipPath,
+        },
+        {
+          duration: 500,
+          easing: 'ease-out',
+          pseudoElement: '::view-transition-new(root)',
+        }
+      );
+    });
+  }, [isDark, setIsDark]);
   return (
       <ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>
         {children}

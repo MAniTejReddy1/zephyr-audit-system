@@ -330,22 +330,22 @@
   right: 0;
   bottom: 0;
   width: 600px;
-  background-color: var(--surface, #12171f);
+  background-color: var(--surface);
   box-shadow: -10px 0 30px rgba(0,0,0,0.3);
   z-index: 100;
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
   animation: slideInRight 350ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  border-left: 1px solid var(--border, #222b39);
+  border-left: 1px solid var(--border);
 }
 
 .qa-report-panel.glassmorphic-panel {
-  background-color: rgba(18, 23, 31, 0.65);
+  background-color: color-mix(in srgb, var(--surface) 85%, transparent);
   backdrop-filter: blur(25px) saturate(200%);
   -webkit-backdrop-filter: blur(25px) saturate(200%);
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 var(--border-light);
+  border-left: 1px solid var(--border);
 }
 
 .qa-report-header {
@@ -354,7 +354,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: rgba(255, 255, 255, 0.015);
+  background-color: var(--bg-alt);
 }
 
 .qa-report-title {
@@ -400,7 +400,7 @@
 }
 
 .qa-report-section {
-  background-color: rgba(255, 255, 255, 0.01);
+  background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
@@ -426,7 +426,7 @@
 }
 
 .qa-report-kpi-card {
-  background-color: rgba(255, 255, 255, 0.015);
+  background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px;
@@ -439,9 +439,9 @@
 
 .qa-report-kpi-card:hover {
   transform: translateY(-4px);
-  background-color: rgba(255, 255, 255, 0.025);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 0 12px var(--card-glow);
+  background-color: var(--card-hover);
+  border-color: var(--border-hover);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 0 12px var(--card-glow);
 }
 
 .qa-report-kpi-icon-wrapper {
@@ -497,7 +497,7 @@
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background-color: rgba(255, 255, 255, 0.005);
+  background-color: var(--card);
 }
 
 .qa-report-status-item .label {
@@ -538,7 +538,7 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
-  background-color: rgba(255, 255, 255, 0.015);
+  background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: 4px;
   cursor: pointer;
@@ -547,7 +547,7 @@
 
 .qa-report-sort-btn:hover {
   color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: var(--card-hover);
 }
 
 .qa-report-sort-btn.active {
@@ -564,7 +564,7 @@
 }
 
 .qa-report-squad-card {
-  background-color: rgba(255, 255, 255, 0.015);
+  background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px 14px;
@@ -574,8 +574,8 @@
 .qa-report-squad-card:hover {
   background-color: var(--card-hover);
   transform: translateX(4px);
-  border-color: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--border-hover);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .qa-report-squad-card.current {
@@ -682,12 +682,12 @@
 
 .qa-report-platform-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 8px;
-  background-color: rgba(255, 255, 255, 0.005);
+  justify-content: space-between;
+  padding: 10px 14px;
+  background-color: var(--card);
   border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
 .qa-report-platform-info {
@@ -736,7 +736,7 @@
 }
 
 .qa-report-issue-card {
-  background-color: rgba(255, 255, 255, 0.01);
+  background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px 14px;
@@ -744,7 +744,8 @@
 }
 
 .qa-report-issue-card:hover {
-  border-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-hover);
+  background-color: var(--card-hover);
 }
 
 .qa-report-issue-header {

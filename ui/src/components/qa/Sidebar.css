@@ -144,33 +144,29 @@
 
 .qa-tree-folder-header:hover {
   background-color: var(--card-hover);
-  transform: translateX(2px);
 }
 
 .qa-tree-folder-header.active {
   background-color: var(--brand-accent-dim) !important;
   color: var(--brand-accent) !important;
-  border-color: rgba(96, 165, 250, 0.25) !important;
-  box-shadow: 0 4px 16px rgba(96, 165, 250, 0.08);
 }
 
 
 .qa-tree-folder-header.rc-level {
-  font-weight: 700;
-  font-size: 12.5px;
+  font-weight: 750;
+  font-size: 13px;
   color: var(--text-primary);
-  background-color: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background-color: transparent;
+  border: none;
 }
 
 .qa-tree-folder-header.ver-level {
   font-weight: 600;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-secondary);
-  margin-left: 8px;
-  background-color: rgba(255, 255, 255, 0.01);
-  border: 1px solid rgba(255, 255, 255, 0.015);
-  margin-top: 6px;
+  background-color: transparent;
+  border: none;
+  padding: 6px 10px;
 }
 
 /* Chevron Animations */
@@ -205,10 +201,10 @@
 
 .qa-tree-folder-stats .squad-fraction {
   color: var(--text-dim);
-  background-color: rgba(255, 255, 255, 0.03);
-  padding: 1px 5px;
+  background-color: var(--card);
+  padding: 2px 6px;
   border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
 }
 
 .qa-tree-folder-stats .percent-progress {
@@ -220,45 +216,47 @@
 }
 
 .qa-tree-rc-children {
-  margin-top: 4px;
+  margin-top: 2px;
+  margin-left: 14px;
+  border-left: 1px solid var(--border);
+  padding-left: 4px;
 }
 
 .qa-tree-ver-children {
-  margin-top: 4px;
+  margin-top: 2px;
+  margin-left: 14px;
+  border-left: 1px solid var(--border-light);
+  padding-left: 4px;
 }
 
 /* Leaf nodes (Squads) */
 .qa-tree-leaf {
   display: flex;
   flex-direction: column;
-  padding: 10px 12px;
-  margin-left: 24px;
-  margin-top: 6px;
-  margin-bottom: 6px;
-  border-radius: 8px;
+  padding: 8px 10px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  border-radius: 6px;
   cursor: pointer;
   color: var(--text-secondary);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid var(--border);
-  background-color: rgba(255, 255, 255, 0.008);
+  border: 1px solid transparent;
+  background-color: transparent;
   position: relative;
   overflow: hidden;
-  gap: 8px;
+  gap: 6px;
 }
 
 .qa-tree-leaf:hover {
   background-color: var(--card-hover);
   color: var(--text-primary);
-  transform: translateX(4px);
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--border-light);
 }
 
 .qa-tree-leaf.active {
   background-color: var(--brand-accent-dim);
   color: var(--brand-accent);
-  border-color: rgba(96, 165, 250, 0.25);
-  box-shadow: 0 4px 16px rgba(96, 165, 250, 0.08);
+  border-color: var(--blue-dim);
 }
 
 .qa-tree-leaf-main {
@@ -343,7 +341,6 @@
   justify-content: center;
   font-size: 7.5px;
   font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .qa-tree-leaf.active .qa-leaf-owner-avatar {
@@ -353,10 +350,10 @@
 
 .qa-leaf-build-tag {
   color: var(--text-dim);
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: var(--card);
   padding: 1px 4px;
   border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
   font-family: ui-monospace, monospace;
 }
 
@@ -404,7 +401,7 @@
   right: 0;
   bottom: 0;
   height: 2px;
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: var(--border-light);
   width: 100%;
 }
 

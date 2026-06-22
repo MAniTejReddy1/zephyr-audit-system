@@ -254,12 +254,95 @@ const RightDetailsDrawer = ({ item, onClose, updateItem, availableTesters = [], 
                       )}
                     </div>
                   </div>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                    Original Name: {item.test_case?.name}
-                  </span>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, background: 'var(--border-light, #1b2431)', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--border)', marginTop: 4 }}>
+                    <div style={{ fontWeight: 600, fontSize: 10, color: 'var(--text-secondary)', opacity: 0.6, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Original Name / Full Gherkin Flow</div>
+                    <div style={{ wordBreak: 'break-word', color: 'var(--text-primary)' }}>{item.test_case?.name}</div>
+                  </div>
                 </div>
               )}
             </div>
+
+            {/* Test Case Information (Objective, labels, custom fields, components, estimated time) */}
+            {(() => {
+              const rawSnapshot = details?.test_case?.raw_snapshot || item.test_case?.raw_snapshot;
+              const objective = rawSnapshot?.objective;
+              const labels = rawSnapshot?.labels;
+              const component = rawSnapshot?.component;
+              const estimatedTime = rawSnapshot?.estimatedTime;
+              const customFields = rawSnapshot?.customFields;
+
+              const hasMetadata = objective || (labels && labels.length > 0) || component || estimatedTime || customFields;
+              if (!hasMetadata) return null;
+
+              return (
+                <div className="qa-details-section" style={{ gap: 12 }}>
+                  <label className="qa-details-label">Test Case Information</label>
+                  
+                  {objective && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', opacity: 0.7 }}>Objective</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5 }}>{objective}</div>
+                    </div>
+                  )}
+
+                  {labels && labels.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', opacity: 0.7 }}>Labels</div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                        {labels.map((lbl, idx) => (
+                          <span key={idx} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, backgroundColor: 'var(--border-light, #1b2431)', color: 'var(--brand-accent)', fontWeight: 600, border: '1px solid var(--border)' }}>
+                            {lbl}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(component || estimatedTime) && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 4 }}>
+                      {component && (
+                        <div style={{ padding: '8px 10px', background: 'var(--border-light, #1b2431)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, color: 'var(--text-secondary)', opacity: 0.6, textTransform: 'uppercase', fontWeight: 700, marginBottom: 2 }}>Component</div>
+                          <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-primary)' }}>{component}</div>
+                        </div>
+                      )}
+                      {estimatedTime && (
+                        <div style={{ padding: '8px 10px', background: 'var(--border-light, #1b2431)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 9, color: 'var(--text-secondary)', opacity: 0.6, textTransform: 'uppercase', fontWeight: 700, marginBottom: 2 }}>Estimated Time</div>
+                          <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-primary)' }}>{Math.round(estimatedTime / 60)} minutes</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {customFields && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.02em', opacity: 0.7 }}>Automation Coverage</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 2 }}>
+                        <div style={{ background: 'var(--border-light, #1b2431)', border: '1px solid var(--border)', padding: '6px 8px', borderRadius: 4, textAlign: 'center' }}>
+                          <div style={{ fontSize: 9, color: 'var(--text-secondary)', opacity: 0.6, textTransform: 'uppercase', fontWeight: 600 }}>API</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: customFields.is_automated_in_api === 'Yes' ? 'var(--success, #10b981)' : 'var(--text-secondary)' }}>
+                            {customFields.is_automated_in_api || 'No'}
+                          </div>
+                        </div>
+                        <div style={{ background: 'var(--border-light, #1b2431)', border: '1px solid var(--border)', padding: '6px 8px', borderRadius: 4, textAlign: 'center' }}>
+                          <div style={{ fontSize: 9, color: 'var(--text-secondary)', opacity: 0.6, textTransform: 'uppercase', fontWeight: 600 }}>App</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: customFields.is_automated_in_app === 'Yes' ? 'var(--success, #10b981)' : 'var(--text-secondary)' }}>
+                            {customFields.is_automated_in_app || 'No'}
+                          </div>
+                        </div>
+                        <div style={{ background: 'var(--border-light, #1b2431)', border: '1px solid var(--border)', padding: '6px 8px', borderRadius: 4, textAlign: 'center' }}>
+                          <div style={{ fontSize: 9, color: 'var(--text-secondary)', opacity: 0.6, textTransform: 'uppercase', fontWeight: 600 }}>Web</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: customFields.is_automated_in_web === 'Yes' ? 'var(--success, #10b981)' : 'var(--text-secondary)' }}>
+                            {customFields.is_automated_in_web || 'No'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Preconditions */}
             {!loading && details?.precondition && (

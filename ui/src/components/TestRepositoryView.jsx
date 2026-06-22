@@ -11,8 +11,8 @@ import './TestRepositoryView.css';
 
 function auditActorName(log, resolveUser) {
   if (!log?.actor_name && !log?.actor_account) return 'Unknown Modifier';
-  const resolved = resolveUser(log.actor_name, log.actor_account);
-  return resolved === 'Unassigned' ? 'Unknown Modifier' : resolved;
+  const resolved = typeof resolveUser === 'function' ? resolveUser(log.actor_name, log.actor_account) : log.actor_name;
+  return resolved === 'Unassigned' || !resolved ? 'Unknown Modifier' : resolved;
 }
 
 function formatFieldName(key) {
@@ -293,7 +293,7 @@ function TestDetailPanel({ testCase, resolveUser }) {
           </div>
           <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: 10, margin: 0 }}>{testCase.name}</h2>
           <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap', marginTop: 8 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><User size={12} color="var(--purple)"/> {resolveUser(testCase.owner_name, testCase.owner_account) || 'Unassigned'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><User size={12} color="var(--purple)"/> {typeof resolveUser === 'function' ? (resolveUser(testCase.owner_name, testCase.owner_account) || 'Unassigned') : (testCase.owner_name || 'Unassigned')}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Folder size={12} color="var(--yellow)"/> {testCase.folder_path?.split(' > ').pop() || 'Root'}</span>
           </div>
         </div>
@@ -323,7 +323,7 @@ function TestDetailPanel({ testCase, resolveUser }) {
                   <div className="detail-fields-grid">
                     <DetailField label="Status" value={testCase.status}/>
                     <DetailField label="Priority" value={testCase.priority || raw.priority?.name}/>
-                    <DetailField label="Owner" value={resolveUser(testCase.owner_name, testCase.owner_account) || resolveUser(raw.owner?.displayName, raw.owner?.accountId)}/>
+                    <DetailField label="Owner" value={typeof resolveUser === 'function' ? (resolveUser(testCase.owner_name, testCase.owner_account) || resolveUser(raw.owner?.displayName, raw.owner?.accountId)) : (testCase.owner_name || raw.owner?.displayName || 'Unassigned')}/>
                     <DetailField label="Folder" value={testCase.folder_path}/>
                   </div>
                 </Section>

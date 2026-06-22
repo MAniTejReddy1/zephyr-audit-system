@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ListChecks, Plus, ChevronDown, Search, X, Calendar, User, AlertCircle } from 'lucide-react';
+import { ListChecks, Plus, ChevronDown, Search, X, Calendar, User, AlertCircle, Package, GitBranch } from 'lucide-react';
 import './Sidebar.css';
 
 const getInitials = (name) => {
@@ -299,13 +299,20 @@ const Sidebar = ({ cycles, activeSelection, setActiveSelection, setIsImportModal
                   onClick={(e) => {
                     e.stopPropagation();
                     setActiveSelection({ type: 'release', name: rcName });
-                    toggleFolder(rcName);
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-                    <span className={`qa-tree-chevron ${isRcExpanded ? 'expanded' : ''}`}>
-                      <ChevronDown size={13} />
+                    <span 
+                      className={`qa-tree-chevron ${isRcExpanded ? 'expanded' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFolder(rcName);
+                      }}
+                      style={{ cursor: 'pointer', padding: 2, margin: -2, borderRadius: 4 }}
+                    >
+                      <ChevronDown size={14} />
                     </span>
+                    <Package size={14} style={{ color: 'var(--brand-accent)', flexShrink: 0 }} />
                     <span className="qa-tree-folder-name" title={rcName}>{rcName}</span>
                   </div>
                   <div className="qa-tree-folder-stats">
@@ -326,13 +333,20 @@ const Sidebar = ({ cycles, activeSelection, setActiveSelection, setIsImportModal
                             onClick={(e) => {
                               e.stopPropagation();
                               setActiveSelection({ type: 'version', rcName, verName });
-                              toggleFolder(verKey);
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
-                              <span className={`qa-tree-chevron ${isVerExpanded ? 'expanded' : ''}`}>
+                              <span 
+                                className={`qa-tree-chevron ${isVerExpanded ? 'expanded' : ''}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFolder(verKey);
+                                }}
+                                style={{ cursor: 'pointer', padding: 2, margin: -2, borderRadius: 4 }}
+                              >
                                 <ChevronDown size={13} />
                               </span>
+                              <GitBranch size={13} style={{ color: 'var(--text-dim)', flexShrink: 0 }} />
                               <span className="qa-tree-folder-name" title={verName}>{verName}</span>
                             </div>
                             <div className="qa-tree-folder-stats">

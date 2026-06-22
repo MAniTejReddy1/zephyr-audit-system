@@ -82,6 +82,7 @@ class Settings:
     tm4j_history_concurrency: int
     # Sidebar weekly metrics: Monday 00:00 boundary in this IANA timezone (ex: Asia/Kolkata)
     stats_timezone: str
+    tag_words: tuple[str, ...]
 
     @property
     def sync_database_url(self) -> str:
@@ -141,7 +142,7 @@ def get_settings() -> Settings:
         alert_initial_delay_seconds=_float_env("ALERT_INITIAL_DELAY_SECONDS", 2.0),
         # Poller concurrency settings (previously hardcoded)
         folder_fetch_concurrency=_int_env("FOLDER_FETCH_CONCURRENCY", 20) or 20,
-        test_step_fetch_concurrency=_int_env("TEST_STEP_FETCH_CONCURRENCY", 100) or 100,
+        test_step_fetch_concurrency=_int_env("TEST_STEP_FETCH_concurrency", 100) or 100,
         # API rate limiting
         rate_limit_per_minute=_int_env("RATE_LIMIT_PER_MINUTE", 120) or 120,
         # Retry settings
@@ -152,4 +153,5 @@ def get_settings() -> Settings:
         tm4j_jira_project_id=_int_env("TM4J_JIRA_PROJECT_ID"),
         tm4j_history_concurrency=_int_env("TM4J_HISTORY_CONCURRENCY", 50) or 50,
         stats_timezone=(os.getenv("STATS_TIMEZONE") or os.getenv("TZ") or "UTC").strip(),
+        tag_words=_csv_env("TAG_WORDS", "regression,smoke,sanity,p0,p1,p2,p3,prod,staging,dev,qa,wip,skip,automation"),
     )

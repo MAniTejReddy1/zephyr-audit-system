@@ -4,7 +4,7 @@ import Sidebar from '../components/qa/Sidebar';
 import MainContent from '../components/qa/MainContent';
 import { STATUS_ICONS, STATUS_COLORS, STATUS_LABELS } from '../constants.jsx';
 import './QAChecklistPage.css';
-import { XCircle, TrendingUp, AlertTriangle, Users, Layers, Activity, ChevronUp, ChevronDown } from 'lucide-react';
+import { XCircle, TrendingUp, AlertTriangle, Users, Layers, Activity, ChevronUp, ChevronDown, ListChecks } from 'lucide-react';
 import TableSkeletonLoader from '../components/qa/TableSkeletonLoader.jsx'; // Import the new skeleton loader
 import ConfirmationModal from '../components/qa/ConfirmationModal.jsx'; // Import new modal component
 import ReopenCycleModal from '../components/qa/ReopenCycleModal.jsx'; // Import ReopenCycleModal
@@ -169,7 +169,7 @@ const QAChecklistPage = () => {
           }
         });
 
-        const data = await apiFetch(`/api/cycles/preview_import_count?${queryParams.toString()}`, {
+        const data = await apiFetch(`/cycles/preview_import_count?${queryParams.toString()}`, {
           signal: controller.signal
         });
         setPreviewCount(data.count);
@@ -677,14 +677,19 @@ const QAChecklistPage = () => {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Squad</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Futures"
+                  <select
                     value={importSquad}
                     onChange={(e) => handleSquadChange(e.target.value)}
                     className="qa-search-input"
-                    style={{ paddingLeft: 12 }}
-                  />
+                    style={{ paddingLeft: 12, appearance: 'none', cursor: 'pointer', backgroundImage: 'url("data:image/svg+xml;utf8,<svg fill=\'%2364748b\' height=\'24\' viewBox=\'0 0 24 24\' width=\'24\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M7 10l5 5 5-5z\'/></svg>")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center' }}
+                  >
+                    <option value="" disabled>Select Squad</option>
+                    <option value="Futures">Futures</option>
+                    <option value="Spot">Spot</option>
+                    <option value="Payments">Payments</option>
+                    <option value="Options">Options</option>
+                    <option value="Engagement">Engagement</option>
+                  </select>
                 </div>
               </div>
 
@@ -788,14 +793,28 @@ const QAChecklistPage = () => {
                 </div>
               </div>
 
-              {previewCount !== null && (
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', backgroundColor: 'var(--border-light)', borderRadius: 8, border: '1px solid var(--border)' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--brand-accent)' }}>
-                    {loadingPreviewCount ? 'Calculating...' : `≈ ${previewCount} test cases`}
-                  </span>
-                  <span>match these filters</span>
+              <div className="qa-import-summary" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px', backgroundColor: 'var(--brand-accent-dim)', borderRadius: '12px', border: '1px solid rgba(96, 165, 250, 0.2)', marginTop: '8px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: 'rgba(96, 165, 250, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brand-accent)' }}>
+                  <ListChecks size={20} />
                 </div>
-              )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Import Summary</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    {loadingPreviewCount ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span className="qa-spinner" style={{ width: 12, height: 12, border: '2px solid var(--brand-accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', display: 'inline-block' }} />
+                        Calculating cases...
+                      </span>
+                    ) : (
+                      previewCount !== null ? (
+                        <span>Approximately <strong style={{ color: 'var(--brand-accent)' }}>{previewCount} test cases</strong> match your criteria and will be imported.</span>
+                      ) : (
+                        <span>Adjust filters to calculate test cases.</span>
+                      )
+                    )}
+                  </span>
+                </div>
+              </div>
 
               {importError && (
                 <div style={{ color: 'var(--danger)', fontSize: 13, backgroundColor: 'var(--danger-dim)', padding: 12, borderRadius: 8, border: '1px solid var(--danger)', marginTop: 8 }}>
@@ -832,7 +851,8 @@ const QAChecklistPage = () => {
       )}
       {isReportOpen && (
         <ReportPanel 
-          activeCycle={activeCycle} 
+          activeCycle={activeCycle}
+          activeSelection={activeSelection}
           cycles={cycles}
           onClose={() => setIsReportOpen(false)} 
         />
@@ -864,15 +884,68 @@ const getStatusTone = (pct) => {
       color: '#10B981'
     };
   }
-};const ReportPanel = ({ activeCycle, cycles = [], onClose }) => {
+};const ReportPanel = ({ activeCycle, activeSelection, cycles = [], onClose }) => {
   const [sortBy, setSortBy] = useState('squad'); // 'squad', 'passPct', 'progressPct'
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc', 'desc'
   const [expandedIssues, setExpandedIssues] = useState(new Set());
 
   const siblingCycles = useMemo(() => {
-    if (!activeCycle || !cycles) return [];
-    return cycles.filter(c => c.release_cycle === activeCycle.release_cycle && c.version === activeCycle.version);
-  }, [activeCycle, cycles]);
+    if (!cycles || !activeSelection) return [];
+    
+    const normalizeVerName = (v) => v ? (v.toLowerCase().startsWith('v') ? v : `v${v}`) : "v1.0.0";
+    
+    const getParsedParts = (c) => {
+      let rc = c.release_cycle;
+      let ver = c.version;
+      let squad = c.squad;
+      
+      if (!rc || !ver || !squad) {
+        const parts = c.name.split('/');
+        if (parts.length >= 3) {
+          rc = rc || parts[0].trim();
+          ver = ver || parts[1].trim();
+          squad = squad || parts[2].trim();
+        } else {
+          rc = rc || c.name;
+          ver = ver || "v1.0.0";
+          squad = squad || "Core";
+        }
+      }
+      return { rc, ver: normalizeVerName(ver), squad };
+    };
+
+    if (activeSelection.type === 'release') {
+      return cycles.filter(c => {
+        const parts = getParsedParts(c);
+        return parts.rc === activeSelection.name;
+      });
+    } else if (activeSelection.type === 'version') {
+      return cycles.filter(c => {
+        const parts = getParsedParts(c);
+        return parts.rc === activeSelection.rcName && parts.ver === activeSelection.verName;
+      });
+    } else if (activeSelection.type === 'squad') {
+      if (activeCycle) {
+        const parts = getParsedParts(activeCycle);
+        return cycles.filter(c => {
+          const cParts = getParsedParts(c);
+          return cParts.rc === parts.rc && cParts.ver === parts.ver;
+        });
+      }
+    }
+    return [];
+  }, [activeSelection, activeCycle, cycles]);
+
+  const reportContextName = useMemo(() => {
+    if (activeSelection?.type === 'release') return { rc: activeSelection.name, ver: 'All Versions' };
+    if (activeSelection?.type === 'version') return { rc: activeSelection.rcName, ver: activeSelection.verName };
+    if (activeSelection?.type === 'squad' && activeCycle) {
+      const rc = activeCycle.release_cycle || activeCycle.name.split('/')[0]?.trim();
+      const ver = activeCycle.version || activeCycle.name.split('/')[1]?.trim();
+      return { rc: rc || 'General', ver: ver || 'v1.0.0' };
+    }
+    return { rc: 'General', ver: 'v1.0.0' };
+  }, [activeSelection, activeCycle]);
 
   const aggregatedStats = useMemo(() => {
     const s = { pass: 0, fail: 0, hold: 0, blocked: 0, skip: 0, na: 0, pending: 0, pass_flaky: 0, total: 0 };
@@ -1008,7 +1081,7 @@ const getStatusTone = (pct) => {
         <div>
           <h2 className="qa-report-title">Release Quality Report</h2>
           <div className="qa-report-subtitle">
-            {activeCycle?.release_cycle || 'General'} — {activeCycle?.version || 'v1.0.0'}
+            {reportContextName.rc} — {reportContextName.ver}
           </div>
         </div>
         <button onClick={onClose} className="qa-report-close-btn" aria-label="Close report">
@@ -1255,7 +1328,7 @@ const getStatusTone = (pct) => {
                           <span style={{ color: 'var(--warning)', fontWeight: 500 }}>⚠️ No Bug Ticket Linked</span>
                         )}
                         {item.notes && (
-                          <div style={{ marginTop: 4, padding: 8, borderRadius: 6, backgroundColor: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border)' }}>
+                          <div style={{ marginTop: 4, padding: 8, borderRadius: 6, backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
                             <strong style={{ display: 'block', fontSize: 10, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 2 }}>Notes</strong>
                             {item.notes}
                           </div>
