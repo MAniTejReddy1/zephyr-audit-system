@@ -15,6 +15,9 @@ export default function Sidebar({
   onDrillAutomated, onDrillManual, onDrillNone, statsPeriod, onPeriodChange
 }) {
   const [syncing, setSyncing] = useState(false);
+  const [isAutomationExpanded, setIsAutomationExpanded] = useState(true);
+  const [isActivityExpanded, setIsActivityExpanded] = useState(true);
+  const [isContributorsExpanded, setIsContributorsExpanded] = useState(true);
   const automation = stats.automation_coverage || {};
   const weeklyActivity = stats.weekly_activity || [];
   const contributors = stats.contributors_week || [];
@@ -99,36 +102,51 @@ export default function Sidebar({
       {/* Scrollable Analytics (expanded) */}
       {!collapsed && (
         <div className="sidebar-metrics" style={{ flex: 1, overflowY: 'auto', padding: '11px 11px 20px' }}>
-          <SidebarSection icon={BarChart3} title="Automation Coverage"/>
-          <InteractivePieChart
-            automated={autoCount}
-            notAutomated={notAutoCount}
-            none={noneCount}
-            total={pieTotal}
-            onClickAutomated={onDrillAutomated}
-            onClickNotAutomated={onDrillManual}
-            onClickNone={onDrillNone}
-            deltaAutomated={automation.automated_delta_count}
-            baselineAt={automation.baseline_at}
-            nav={nav}
+          <CollapsibleSidebarSection
+            icon={BarChart3}
+            title="Automation Coverage"
+            expanded={isAutomationExpanded}
+            onToggle={() => setIsAutomationExpanded(!isAutomationExpanded)}
           />
+          {isAutomationExpanded && (
+            <InteractivePieChart
+              automated={autoCount}
+              notAutomated={notAutoCount}
+              none={noneCount}
+              total={pieTotal}
+              onClickAutomated={onDrillAutomated}
+              onClickNotAutomated={onDrillManual}
+              onClickNone={onDrillNone}
+              deltaAutomated={automation.automated_delta_count}
+              baselineAt={automation.baseline_at}
+              nav={nav}
+            />
+          )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 16, marginBottom: 6, padding: '0 1px' }}>
-            <Calendar size={10} color={T.textDim}/>
-            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: T.textDim, flex: 1 }}>
-              Activity
-            </span>
-            {weeklyWindow.from_iso && (
-              <span style={{ fontSize: 8, color: T.textDim, fontWeight: 500 }} title={`Window start: ${fmtDate(weeklyWindow.from_iso, 'detail')}`}>
-                {fmtDate(weeklyWindow.from_iso, 'short')}
-              </span>
-            )}
-          </div>
-          <PeriodSelector current={statsPeriod || '7d'} onChange={onPeriodChange}/>
-          <WeeklyActivityCard rows={weeklyActivity} onDrillAudit={onDrillAudit}/>
+          <CollapsibleSidebarSection
+            icon={Calendar}
+            title={`Activity ${weeklyWindow.from_iso ? `· ${fmtDate(weeklyWindow.from_iso, 'short')}` : ''}`}
+            expanded={isActivityExpanded}
+            onToggle={() => setIsActivityExpanded(!isActivityExpanded)}
+            marginTop={16}
+          />
+          {isActivityExpanded && (
+            <>
+              <PeriodSelector current={statsPeriod || '7d'} onChange={onPeriodChange}/>
+              <WeeklyActivityCard rows={weeklyActivity} onDrillAudit={onDrillAudit}/>
+            </>
+          )}
 
-          <SidebarSection icon={Users} title={`Contributors · ${periodLabel}`} marginTop={16}/>
-          <ContributorsCard contributors={contributors}/>
+          <CollapsibleSidebarSection
+            icon={Users}
+            title={`Contributors · ${periodLabel}`}
+            expanded={isContributorsExpanded}
+            onToggle={() => setIsContributorsExpanded(!isContributorsExpanded)}
+            marginTop={16}
+          />
+          {isContributorsExpanded && (
+            <ContributorsCard contributors={contributors}/>
+          )}
         </div>
       )}
 
@@ -224,6 +242,45 @@ function SidebarSection({ icon: Icon, title, marginTop = 0 }) {
       <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: T.textDim, whiteSpace: 'nowrap' }}>{title}</span>
       <div style={{ flex: 1, height: '1px', background: T.borderLight, marginLeft: 3 }}/>
     </div>
+  );
+}
+
+function CollapsibleSidebarSection({ icon: Icon, title, expanded, onToggle, marginTop = 0 }) {
+  return (
+    <button
+      onClick={onToggle}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        marginTop,
+        marginBottom: 8,
+        padding: '6px 1px',
+        background: 'none',
+        border: 'none',
+        width: '100%',
+        textAlign: 'left',
+        cursor: 'pointer',
+        color: T.textDim,
+        transition: 'color 0.2s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.color = T.text; }}
+      onMouseLeave={e => { e.currentTarget.style.color = T.textDim; }}
+    >
+      <Icon size={10} style={{ flexShrink: 0 }} />
+      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', flex: 1 }}>
+        {title}
+      </span>
+      <ChevronRight
+        size={10}
+        style={{
+          transition: 'transform 0.2s',
+          transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+          opacity: 0.7,
+          flexShrink: 0
+        }}
+      />
+    </button>
   );
 }
 
@@ -450,11 +507,15 @@ function PeriodSelector({ current, onChange }) {
             className={`period-pill${isActive ? ' active' : ''}`}
             onClick={() => onChange?.(opt.value)}
             style={{
-              padding: '5px 0', fontSize: 10, fontWeight: isActive ? 700 : 500,
+              flex: 1,
+              padding: '6px 0', fontSize: 10, fontWeight: isActive ? 700 : 500,
               background: isActive ? T.gradBlue : 'transparent',
               color: isActive ? '#fff' : T.textDim,
               boxShadow: isActive ? '0 2px 6px rgba(96,165,250,.35)' : 'none',
               borderRadius: 6,
+              border: 'none',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
           >
             {opt.label}

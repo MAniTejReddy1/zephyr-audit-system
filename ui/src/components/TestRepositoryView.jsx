@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Folder, FolderOpen, FileText, Search, X, Target, Eye, EyeOff,
-  ChevronLeft, ChevronRight, ChevronDown, Info, List, History, Trash2, User, ArrowRight
+  ChevronLeft, ChevronRight, ChevronDown, Info, List, History, Trash2, User, ArrowRight, RefreshCw
 } from 'lucide-react';
 
 import { T, useSessionState, actionConfig } from '../theme';
 import { apiFetch, pluralize, fmtDate, NEWLINE, TABCH } from '../utils';
 import { useResizable, EmptyState, IconButton, ResizeHandle, Badge } from './common';
+import './TestRepositoryView.css';
 
 function auditActorName(log, resolveUser) {
   if (!log?.actor_name && !log?.actor_account) return 'Unknown Modifier';
@@ -78,58 +79,66 @@ export default function TestRepositoryView({ folders, testCases, selectedFolder,
   const totalCases = folders.reduce((s, f) => s + (f.test_case_count || 0), 0);
 
   return (
-      <div className="pane-row" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Folders */}
-        <div className="pane" style={{ width: isNarrow ? '100%' : folderPanel.width, minHeight: isNarrow ? 220 : 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bgAlt, borderRight: `1px solid ${T.border}` }}>
-          <div style={{ padding: 16, borderBottom: `1px solid ${T.border}`, background: T.card }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: T.gradPurple, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="repo-explorer-row">
+        {/* Folders sidebar panel */}
+        <div className="repo-pane repo-folders-pane" style={{ width: isNarrow ? '100%' : folderPanel.width, minHeight: isNarrow ? 220 : 0 }}>
+          <div className="repo-pane-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Folder size={18} color="#fff"/>
               </div>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>Test Cases</div>
-                <div className="num" style={{ fontSize: 12, color: T.textMuted }}>{totalCases.toLocaleString()} total</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Test Cases</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{totalCases.toLocaleString()} total</div>
               </div>
             </div>
-            <div style={{ position: 'relative' }}>
-              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: T.textDim }}/>
+            
+            <div className="repo-search-input-wrapper">
+              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }}/>
               <input
-                  value={folderSearch} onChange={e => setFolderSearch(e.target.value)} placeholder="Search folders..."
+                  value={folderSearch} 
+                  onChange={e => setFolderSearch(e.target.value)} 
+                  placeholder="Search folders..."
                   aria-label="Search folders"
-                  style={{ width: '100%', padding: '9px 12px 9px 34px', borderRadius: 8, border: `1px solid ${T.border}`, background: T.bgSurface, color: T.text, fontSize: 13 }}
               />
               {folderSearch && (
-                  <button onClick={() => setFolderSearch('')} aria-label="Clear folder search"
-                          style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: T.textDim, cursor: 'pointer', padding: 4 }}>
+                  <button onClick={() => setFolderSearch('')} aria-label="Clear folder search" className="repo-search-clear-btn">
                     <X size={12}/>
                   </button>
               )}
             </div>
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+          <div className="repo-tree-container thin-scrollbar">
             <FolderTree node={filteredFolderTree} depth={0} selected={selectedFolder} onSelect={onSelectFolder} searchTerm={folderSearch}/>
           </div>
         </div>
 
         <ResizeHandle onMouseDown={folderPanel.handleMouseDown}/>
 
-        {/* Test List */}
-        <div className="pane" style={{ width: isNarrow ? '100%' : (detailVisible ? listPanel.width : 'auto'), minHeight: isNarrow ? 280 : 0, flex: !isNarrow && detailVisible ? 'none' : 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: T.bg }}>
-          <div style={{ padding: 12, borderBottom: `1px solid ${T.border}`, background: T.card, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ position: 'relative', flex: 1, maxWidth: 300 }}>
-              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: T.textDim }}/>
+        {/* Test List Panel */}
+        <div className="repo-pane repo-list-pane" style={{ width: isNarrow ? '100%' : (detailVisible ? listPanel.width : 'auto'), minHeight: isNarrow ? 280 : 0, flex: !isNarrow && detailVisible ? 'none' : 1 }}>
+          <div style={{ padding: 12, borderBottom: `1px solid var(--border)`, background: 'var(--card)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="repo-search-input-wrapper" style={{ flex: 1, maxWidth: 300 }}>
+              <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }}/>
               <input
-                  value={searchInput} onChange={e => setSearchInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                  placeholder="Search test cases..." aria-label="Search test cases"
-                  style={{ width: '100%', padding: '10px 14px 10px 38px', borderRadius: 10, border: `1px solid ${T.border}`, background: T.bgSurface, color: T.text, fontSize: 13 }}
+                  value={searchInput} 
+                  onChange={e => setSearchInput(e.target.value)} 
+                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  placeholder="Search test cases..." 
+                  aria-label="Search test cases"
               />
+              {searchInput && (
+                  <button onClick={() => { setSearchInput(''); onSearch(''); }} aria-label="Clear test case search" className="repo-search-clear-btn">
+                    <X size={12}/>
+                  </button>
+              )}
             </div>
-            <button onClick={handleSearch} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: T.gradBlue, color: '#fff', fontSize: 13, fontWeight: 600 }}>Search</button>
+            <button onClick={handleSearch} className="qa-btn-primary" style={{ padding: '8px 16px', fontSize: 13, height: 38 }}>Search</button>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
               {drillLabel && (
                   <button onClick={onClearDrill} title="Clear drill filter" style={{
-                    padding: '8px 12px', borderRadius: 10, border: `1px solid ${T.purple}60`,
-                    background: `${T.purple}15`, color: T.purple, fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '8px 12px', borderRadius: 8, border: `1px solid rgba(167,139,250,.4)`,
+                    background: `rgba(167,139,250,.1)`, color: 'var(--purple)', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6,
                   }}>
                     <X size={11}/> Clear Filter
                   </button>
@@ -139,49 +148,43 @@ export default function TestRepositoryView({ folders, testCases, selectedFolder,
           </div>
 
           {drillLabel && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 16px', background: `${T.purple}18`, borderBottom: `1px solid ${T.purple}40`, fontSize: 11, color: T.purpleLight, fontWeight: 600 }}>
-                <Target size={12} color={T.purple}/>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: `rgba(167,139,250,.1)`, borderBottom: `1px solid var(--border)`, fontSize: 12, color: 'var(--purple)', fontWeight: 600 }}>
+                <Target size={12} color="var(--purple)"/>
                 <span style={{ flex: 1 }}>
-              Filtered by: <span style={{ color: T.text }}>{drillLabel}</span>
-                  {testCases.total !== undefined && <span className="num" style={{ color: T.textDim, fontWeight: 400 }}> · {pluralize(testCases.total, 'test case')}</span>}
-            </span>
+                  Filtered by: <span style={{ color: 'var(--text-primary)' }}>{drillLabel}</span>
+                  {testCases.total !== undefined && <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> · {pluralize(testCases.total, 'test case')}</span>}
+                </span>
               </div>
           )}
 
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ flex: 1, overflowY: 'auto' }} className="thin-scrollbar">
             {!testCases.items?.length ? (
                 <EmptyState icon={FileText} title="No test cases" description={drillLabel ? `No test cases found for: ${drillLabel}` : "Select a folder or search to view test cases."}/>
             ) : (
                 testCases.items.map((tc, i) => {
                   const isSelected = selectedTestCase?.zephyr_key === tc.zephyr_key;
                   return (
-                      <button key={tc.zephyr_key} onClick={() => onSelectTestCase(tc)} style={{
-                        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', width: '100%',
-                        background: isSelected ? T.blueDim : i % 2 === 0 ? 'transparent' : 'rgba(127,127,127,.04)',
-                        borderBottom: `1px solid ${T.borderLight}`,
-                        borderLeft: isSelected ? `3px solid ${T.blue}` : '3px solid transparent',
-                        textAlign: 'left', cursor: 'pointer', transition: 'all .15s ease'
-                      }}>
-                        <FileText size={16} color={isSelected ? T.blue : T.textDim} style={{ flexShrink: 0 }}/>
-                        <span style={{ fontSize: 13, color: isSelected ? T.blue : T.blueLight, fontFamily: 'ui-monospace, monospace', fontWeight: 600, flexShrink: 0, minWidth: 90 }}>
-                    {tc.zephyr_key}
-                  </span>
-                        <span style={{ fontSize: 13, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{tc.name}</span>
-                        {tc.is_deleted && <Badge size="xs" color={T.red}>Deleted</Badge>}
+                      <button key={tc.zephyr_key} onClick={() => onSelectTestCase(tc)} className={`test-case-row-card ${isSelected ? 'selected' : ''}`}>
+                        <FileText size={16} color={isSelected ? 'var(--blue)' : 'var(--text-dim)'} style={{ flexShrink: 0 }}/>
+                        <span className="test-case-row-key">
+                          {tc.zephyr_key}
+                        </span>
+                        <span className="test-case-row-name">{tc.name}</span>
+                        {tc.is_deleted && <Badge size="xs" color="var(--red)" bg="var(--redDim)">Deleted</Badge>}
                       </button>
                   );
                 })
             )}
           </div>
 
-          <div className="num" style={{ padding: 12, borderTop: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: T.textMuted, background: T.card }}>
+          <div className="repo-pagination-bar">
             <span>{(testCases.total || 0) === 0 ? '0' : offset + 1} - {Math.min(offset + 40, testCases.total || 0)} of {(testCases.total || 0).toLocaleString()}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <PageBtn onClick={() => onPageChange(0)} disabled={offset === 0}>First</PageBtn>
-              <PageBtn onClick={() => onPageChange(Math.max(0, offset - 40))} disabled={offset === 0}><ChevronLeft size={14}/></PageBtn>
-              <span style={{ padding: '0 14px', fontSize: 13, color: T.text, fontWeight: 600 }}>{currentPage} / {totalPages || 1}</span>
-              <PageBtn onClick={() => onPageChange(offset + 40)} disabled={offset + 40 >= (testCases.total || 0)}><ChevronRight size={14}/></PageBtn>
-              <PageBtn onClick={() => onPageChange((totalPages - 1) * 40)} disabled={offset + 40 >= (testCases.total || 0)}>Last</PageBtn>
+              <button onClick={() => onPageChange(0)} disabled={offset === 0} className="repo-page-btn">First</button>
+              <button onClick={() => onPageChange(Math.max(0, offset - 40))} disabled={offset === 0} className="repo-page-btn"><ChevronLeft size={14}/></button>
+              <span className="repo-page-indicator">{currentPage} / {totalPages || 1}</span>
+              <button onClick={() => onPageChange(offset + 40)} disabled={offset + 40 >= (testCases.total || 0)} className="repo-page-btn"><ChevronRight size={14}/></button>
+              <button onClick={() => onPageChange((totalPages - 1) * 40)} disabled={offset + 40 >= (testCases.total || 0)} className="repo-page-btn">Last</button>
             </div>
           </div>
         </div>
@@ -189,7 +192,7 @@ export default function TestRepositoryView({ folders, testCases, selectedFolder,
         {detailVisible && <ResizeHandle onMouseDown={listPanel.handleMouseDown}/>}
 
         {detailVisible && (
-            <div className="pane" style={{ flex: 1, minWidth: isNarrow ? 0 : 350, minHeight: isNarrow ? 320 : 0, overflow: 'hidden', background: T.bgSurface }}>
+            <div className="repo-pane repo-detail-pane" style={{ flex: 1, minWidth: isNarrow ? 0 : 350, minHeight: isNarrow ? 320 : 0 }}>
               {selectedTestCase ? (
                   <TestDetailPanel testCase={selectedTestCase} resolveUser={resolveUser}/>
               ) : (
@@ -198,17 +201,6 @@ export default function TestRepositoryView({ folders, testCases, selectedFolder,
             </div>
         )}
       </div>
-  );
-}
-
-function PageBtn({ children, onClick, disabled }) {
-  return (
-      <button onClick={onClick} disabled={disabled} style={{
-        padding: '6px 12px', borderRadius: 6, border: `1px solid ${T.border}`,
-        background: 'transparent', color: disabled ? T.textDim : T.text,
-        fontSize: 12, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
-        display: 'flex', alignItems: 'center'
-      }}>{children}</button>
   );
 }
 
@@ -239,32 +231,24 @@ function FolderTree({ node, depth, selected, onSelect, searchTerm }) {
 
   return (
       <div>
-        <button onClick={() => { if (hasKids) setOpen(!open); onSelect(node.folder_id); }} style={{
-          display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-          padding: `8px 12px 8px ${8 + depth * 18}px`, borderRadius: 8, marginBottom: 2,
-          background: isSelected ? T.blueDim : 'transparent',
-          border: isSelected ? `1px solid ${T.blue}40` : '1px solid transparent',
-          cursor: 'pointer', textAlign: 'left', transition: 'all .15s ease'
-        }}>
-        <span style={{ width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textDim, borderRadius: 4, background: hasKids ? 'rgba(127,127,127,.08)' : 'transparent' }}>
-          {hasKids ? (open ? <ChevronDown size={14}/> : <ChevronRight size={14}/>) : <span style={{ width: 14 }}/>}
-        </span>
+        <button onClick={() => { if (hasKids) setOpen(!open); onSelect(node.folder_id); }} className={`folder-tree-row-btn ${isSelected ? 'selected' : ''}`} style={{ paddingLeft: `${8 + depth * 18}px` }}>
+          <span className={`folder-tree-chevron ${open ? 'open' : ''}`} style={{ visibility: hasKids ? 'visible' : 'hidden' }}>
+            {open ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}
+          </span>
           <span style={{ display: 'flex', alignItems: 'center' }}>
-          {hasKids ? (open ? <FolderOpen size={16} color={isSelected ? T.blue : T.yellow}/> : <Folder size={16} color={isSelected ? T.blue : T.yellow}/>) : <FileText size={16} color={T.textDim}/>}
-        </span>
-          <span style={{ flex: 1, fontSize: 13, color: isSelected ? T.blue : T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
-          {highlightText(node.name, searchTerm)}
-        </span>
-          <span className="num" style={{
-            fontSize: 11, fontWeight: 600, minWidth: 28, textAlign: 'center', padding: '2px 8px', borderRadius: 10,
-            background: count > 0 ? (isSelected ? T.blue : 'rgba(127,127,127,.12)') : 'transparent',
-            color: count > 0 ? (isSelected ? '#fff' : T.textSecondary) : T.textDim
-          }}>
-          {count > 0 ? count.toLocaleString() : '0'}
-        </span>
+            {hasKids ? (open ? <FolderOpen size={16} color={isSelected ? 'var(--blue)' : 'var(--yellow)'}/> : <Folder size={16} color={isSelected ? 'var(--blue)' : 'var(--yellow)'}/>) : <FileText size={16} color="var(--text-dim)"/>}
+          </span>
+          <span style={{ flex: 1, fontSize: 13, color: isSelected ? 'var(--blue)' : 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isSelected ? 600 : 400 }}>
+            {highlightText(node.name, searchTerm)}
+          </span>
+          {count > 0 && (
+            <span className="folder-count-badge">
+              {count.toLocaleString()}
+            </span>
+          )}
         </button>
         {hasKids && open && (
-            <div style={{ borderLeft: depth > 0 ? `1px solid ${T.border}` : 'none', marginLeft: depth > 0 ? 20 : 0 }}>
+            <div className="folder-tree-children-container" style={{ borderLeft: depth > 0 ? `1px solid var(--border)` : 'none', marginLeft: depth > 0 ? 20 : 0 }}>
               {node.children.map(c => <FolderTree key={c.folder_id} node={c} depth={depth + 1} selected={selected} onSelect={onSelect} searchTerm={searchTerm}/>)}
             </div>
         )}
@@ -301,55 +285,52 @@ function TestDetailPanel({ testCase, resolveUser }) {
 
   return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-        <div style={{ padding: 20, borderBottom: `1px solid ${T.border}`, background: T.card }}>
+        <div className="detail-header-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: T.blue, fontFamily: 'ui-monospace, monospace' }}>{testCase.zephyr_key}</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--blue)', fontFamily: 'ui-monospace, monospace' }}>{testCase.zephyr_key}</span>
             <StatusBadge status={testCase.status}/>
-            {testCase.is_deleted && <Badge size="xs" color={T.red} icon={Trash2}>Deleted</Badge>}
+            {testCase.is_deleted && <Badge size="xs" color="var(--red)" bg="var(--redDim)">Deleted</Badge>}
           </div>
-          <h2 style={{ fontSize: 15, fontWeight: 600, color: T.text, lineHeight: 1.5, marginBottom: 10 }}>{testCase.name}</h2>
-          <div style={{ display: 'flex', gap: 16, fontSize: 12, color: T.textMuted, flexWrap: 'wrap' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><User size={12} color={T.purple}/> {resolveUser(testCase.owner_name, testCase.owner_account) || 'Unassigned'}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Folder size={12} color={T.yellow}/> {testCase.folder_path?.split(' > ').pop() || 'Root'}</span>
+          <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: 10, margin: 0 }}>{testCase.name}</h2>
+          <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap', marginTop: 8 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><User size={12} color="var(--purple)"/> {resolveUser(testCase.owner_name, testCase.owner_account) || 'Unassigned'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Folder size={12} color="var(--yellow)"/> {testCase.folder_path?.split(' > ').pop() || 'Root'}</span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', borderBottom: `1px solid ${T.border}`, background: T.bgAlt }}>
+        <div className="detail-tab-bar">
           {tabs.map(t => {
             const Icon = t.icon;
             const isActive = tab === t.id;
             return (
-                <button key={t.id} onClick={() => setTab(t.id)} aria-current={isActive ? 'page' : undefined} style={{
-                  padding: '12px 18px', border: 'none', fontSize: 13, cursor: 'pointer',
-                  borderBottom: isActive ? `2px solid ${T.blue}` : '2px solid transparent',
-                  background: 'transparent', color: isActive ? T.blue : T.textMuted,
-                  fontWeight: isActive ? 600 : 400, display: 'flex', alignItems: 'center', gap: 8
-                }}>
-                  <Icon size={14}/> {t.label}
-                  {t.count !== undefined && <Badge size="xs" color={T.textDim}>{t.count}</Badge>}
+                <button key={t.id} onClick={() => setTab(t.id)} className={`detail-tab-btn ${isActive ? 'active' : ''}`} aria-current={isActive ? 'page' : undefined}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon size={14}/> {t.label}
+                    {t.count !== undefined && <span style={{ fontSize: 10, background: 'var(--border)', color: 'var(--text-secondary)', padding: '2px 6px', borderRadius: 10, fontWeight: 600 }}>{t.count}</span>}
+                  </span>
                 </button>
             );
           })}
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+        <div className="detail-body-container thin-scrollbar">
           {tab === 'details' && (
               <div>
-                <Section title="Description"><p style={{ fontSize: 13, color: T.textSecondary, lineHeight: 1.7 }}>{raw.name || testCase.name}</p></Section>
-                {raw.objective && <Section title="Objective"><p style={{ fontSize: 13, color: T.textSecondary, lineHeight: 1.7 }}>{cleanDisplayText(raw.objective)}</p></Section>}
-                {raw.precondition && <Section title="Precondition"><p style={{ fontSize: 13, color: T.textSecondary, lineHeight: 1.7 }}>{cleanDisplayText(raw.precondition)}</p></Section>}
+                <Section title="Description"><p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>{raw.name || testCase.name}</p></Section>
+                {raw.objective && <Section title="Objective"><p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>{cleanDisplayText(raw.objective)}</p></Section>}
+                {raw.precondition && <Section title="Precondition"><p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>{cleanDisplayText(raw.precondition)}</p></Section>}
                 <Section title="Details">
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div className="detail-fields-grid">
                     <DetailField label="Status" value={testCase.status}/>
                     <DetailField label="Priority" value={testCase.priority || raw.priority?.name}/>
                     <DetailField label="Owner" value={resolveUser(testCase.owner_name, testCase.owner_account) || resolveUser(raw.owner?.displayName, raw.owner?.accountId)}/>
                     <DetailField label="Folder" value={testCase.folder_path}/>
                   </div>
                 </Section>
-                {raw.labels?.length > 0 && <Section title="Labels"><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{raw.labels.map((l, i) => <Badge key={i} size="sm" color={T.cyan}>{l}</Badge>)}</div></Section>}
+                {raw.labels?.length > 0 && <Section title="Labels"><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{raw.labels.map((l, i) => <Badge key={i} size="sm" color="var(--cyan)" bg="var(--cyanDim)">{l}</Badge>)}</div></Section>}
                 {raw.customFields && Object.keys(raw.customFields).length > 0 && (
                     <Section title="Custom Fields">
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                      <div className="detail-fields-grid">
                         {Object.entries(raw.customFields).map(([k, v]) => <DetailField key={k} label={formatFieldName(k)} value={String(v)}/>)}
                       </div>
                     </Section>
@@ -359,24 +340,24 @@ function TestDetailPanel({ testCase, resolveUser }) {
 
           {tab === 'script' && (
               <div>
-                <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}><List size={16} color={T.purple}/> {pluralize(steps.length, 'Step')}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}><List size={16} color="var(--purple)"/> {pluralize(steps.length, 'Step')}</div>
                 {steps.length === 0 ? (
                     <EmptyState icon={List} title="No Steps" description="This test case has no steps defined."/>
                 ) : (
                     steps.map((step, i) => (
-                        <div key={i} style={{ marginBottom: 14, padding: 16, background: T.card, borderRadius: 12, border: `1px solid ${T.border}` }}>
+                        <div key={i} style={{ marginBottom: 14, padding: 16, background: 'var(--card)', borderRadius: 12, border: `1px solid var(--border)` }}>
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                            <span className="num" style={{ width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: T.gradPurple, color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                            <span className="num" style={{ width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gradPurple)', color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 14, fontWeight: 600, color: T.text, marginBottom: 10 }}>{cleanDisplayText(step.inline?.description || step.description || `Step ${i + 1}`)}</div>
+                              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 10 }}>{cleanDisplayText(step.inline?.description || step.description || `Step ${i + 1}`)}</div>
                               {(step.inline?.testData || step.testData) && (
-                                  <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 8, padding: 10, background: T.bgSurface, borderRadius: 8, borderLeft: `3px solid ${T.purple}` }}>
-                                    <span style={{ color: T.purple, fontWeight: 600 }}>Test Data:</span> {cleanDisplayText(step.inline?.testData || step.testData)}
+                                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8, padding: 10, background: 'var(--bg-alt)', borderRadius: 8, borderLeft: `3px solid var(--purple)` }}>
+                                    <span style={{ color: 'var(--purple)', fontWeight: 600 }}>Test Data:</span> {cleanDisplayText(step.inline?.testData || step.testData)}
                                   </div>
                               )}
                               {(step.inline?.expectedResult || step.expectedResult) && (
-                                  <div style={{ fontSize: 13, color: T.textMuted, padding: 10, background: T.bgSurface, borderRadius: 8, borderLeft: `3px solid ${T.green}` }}>
-                                    <span style={{ color: T.green, fontWeight: 600 }}>Expected:</span> {cleanDisplayText(step.inline?.expectedResult || step.expectedResult)}
+                                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: 10, background: 'var(--bg-alt)', borderRadius: 8, borderLeft: `3px solid var(--green)` }}>
+                                    <span style={{ color: 'var(--green)', fontWeight: 600 }}>Expected:</span> {cleanDisplayText(step.inline?.expectedResult || step.expectedResult)}
                                   </div>
                               )}
                             </div>
@@ -390,43 +371,43 @@ function TestDetailPanel({ testCase, resolveUser }) {
           {tab === 'history' && (
               <div>
                 {loadingHistory ? (
-                    <div style={{ textAlign: 'center', padding: 40, color: T.textDim }}>
-                      <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }}/>
-                      <p style={{ marginTop: 12, fontSize: 13 }}>Loading history...</p>
+                    <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-dim)' }}>
+                      <RefreshCw size={24} style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
+                      <p style={{ marginTop: 12, fontSize: 13, color: 'var(--text-muted)' }}>Loading history...</p>
                     </div>
                 ) : history.length === 0 ? (
                     <EmptyState icon={History} title="No History" description="No changes recorded for this test case."/>
                 ) : (
-                    <div style={{ position: 'relative', paddingLeft: 24 }}>
-                      <div style={{ position: 'absolute', left: 9, top: 12, bottom: 12, width: 2, background: T.border, borderRadius: 1 }}/>
+                    <div className="history-timeline-root">
+                      <div className="history-timeline-line"/>
                       {history.map((log, i) => {
                         const cfg = actionConfig(log);
                         const Icon = cfg.icon;
                         const userName = auditActorName(log, resolveUser);
                         return (
-                            <div key={log.id || i} style={{ position: 'relative', marginBottom: 16 }}>
-                              <div style={{ position: 'absolute', left: -18, top: 6, width: 18, height: 18, borderRadius: 9, background: cfg.bg, border: `2px solid ${cfg.c}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div key={log.id || i} className="history-timeline-item">
+                              <div className="history-icon-circle" style={{ backgroundColor: cfg.bg, borderColor: cfg.c }}>
                                 <Icon size={10} color={cfg.c}/>
                               </div>
-                              <div style={{ padding: 14, background: T.card, borderRadius: 12, border: `1px solid ${T.border}`, marginLeft: 10 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                              <div className="history-log-card">
+                                <div className="history-card-header">
                                   <Badge size="sm" color={cfg.c} bg={cfg.bg} icon={Icon}>{cfg.label}</Badge>
-                                  <span className="num" style={{ fontSize: 11, color: T.textDim }}>{fmtDate(log.detected_at, 'detail')}</span>
+                                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{fmtDate(log.detected_at, 'detail')}</span>
                                 </div>
-                                <div style={{ fontSize: 13, color: T.text }}>Modified by: <strong style={{ color: T.purple }}>{userName}</strong></div>
+                                <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Modified by: <strong style={{ color: 'var(--purple)' }}>{userName}</strong></div>
                                 {log.changed_fields?.length > 0 && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
+                                    <div className="history-diff-list">
                                       {log.changed_fields.map(f => {
                                         const beforeVal = log.diff_before?.[f] !== undefined ? String(log.diff_before[f]) : null;
                                         const afterVal = log.diff_after?.[f] !== undefined && f !== 'name' ? String(log.diff_after[f]) : null;
                                         return (
-                                          <div key={f} style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                            <Badge size="xs" color={T.purple}>{formatFieldName(f)}</Badge>
+                                          <div key={f} className="history-diff-row">
+                                            <Badge size="xs" color="var(--purple)">{formatFieldName(f)}</Badge>
                                             {beforeVal || afterVal ? (
-                                              <span style={{ color: T.textSecondary, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                                {beforeVal ? <span style={{ textDecoration: 'line-through', color: T.red, opacity: 0.8 }}>{beforeVal}</span> : null}
-                                                {beforeVal && afterVal ? <ArrowRight size={10} color={T.textDim} /> : null}
-                                                {afterVal ? <span style={{ color: T.green }}>{afterVal}</span> : null}
+                                              <span style={{ color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                {beforeVal ? <span style={{ textDecoration: 'line-through', color: 'var(--red)', opacity: 0.8 }}>{beforeVal}</span> : null}
+                                                {beforeVal && afterVal ? <ArrowRight size={10} color="var(--text-dim)" /> : null}
+                                                {afterVal ? <span style={{ color: 'var(--green)' }}>{afterVal}</span> : null}
                                               </span>
                                             ) : null}
                                           </div>
@@ -435,9 +416,9 @@ function TestDetailPanel({ testCase, resolveUser }) {
                                     </div>
                                 )}
                                 {log.folder_before !== log.folder_after && log.action === 'MOVED' && (
-                                    <div style={{ marginTop: 10, padding: 10, background: T.bgSurface, borderRadius: 8, fontSize: 12 }}>
-                                      <div style={{ color: T.red, marginBottom: 4 }}>From: {log.folder_before}</div>
-                                      <div style={{ color: T.green }}>To: {log.folder_after}</div>
+                                    <div style={{ marginTop: 10, padding: 10, background: 'var(--bg-alt)', borderRadius: 8, fontSize: 12 }}>
+                                      <div style={{ color: 'var(--red)', marginBottom: 4 }}>From: {log.folder_before}</div>
+                                      <div style={{ color: 'var(--green)' }}>To: {log.folder_after}</div>
                                     </div>
                                 )}
                               </div>
@@ -455,8 +436,8 @@ function TestDetailPanel({ testCase, resolveUser }) {
 
 function Section({ title, children }) {
   return (
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 12 }}>{title}</div>
+      <div className="detail-section-wrapper">
+        <div className="detail-section-title">{title}</div>
         {children}
       </div>
   );
@@ -464,9 +445,9 @@ function Section({ title, children }) {
 
 function DetailField({ label, value }) {
   return (
-      <div style={{ padding: 12, background: T.card, borderRadius: 10, border: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 11, color: T.textDim, textTransform: 'uppercase', marginBottom: 6, fontWeight: 600 }}>{label}</div>
-        <div style={{ fontSize: 14, color: T.text, fontWeight: 500 }}>{value || '—'}</div>
+      <div className="detail-field-card">
+        <div className="detail-field-label">{label}</div>
+        <div className="detail-field-value">{value || '—'}</div>
       </div>
   );
 }

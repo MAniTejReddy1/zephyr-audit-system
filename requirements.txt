@@ -8,3 +8,5 @@ python-dotenv==1.2.2
 SQLAlchemy==2.0.50
 streamlit==1.57.0
 uvicorn==0.48.0
+alembic==1.18.4
+

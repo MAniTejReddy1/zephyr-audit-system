@@ -26,7 +26,31 @@ const JiraStatus = ({ issueKey }) => {
   const color = statusColors[status.status] || 'var(--text-muted)';
 
   return (
-    <a href="#" className="inline-flex items-center gap-1.5 no-underline text-[11px] font-semibold px-2 py-0.5 rounded-md" style={{ color, backgroundColor: `${color}1A`, border: `1px solid ${color}40` }}>
+    <a 
+      href={status.url || '#'} 
+      target={status.url ? "_blank" : undefined}
+      rel="noopener noreferrer"
+      style={{ 
+        display: 'inline-flex', 
+        alignItems: 'center', 
+        gap: '6px', 
+        textDecoration: 'none', 
+        fontSize: '11px', 
+        fontWeight: 600, 
+        padding: '2px 8px', 
+        borderRadius: '4px', 
+        color, 
+        backgroundColor: `${color}1A`, 
+        border: `1px solid ${color}40`,
+        transition: 'all 150ms ease'
+      }}
+      onClick={(e) => { 
+        if (!status.url) {
+          e.preventDefault();
+        }
+        e.stopPropagation(); 
+      }}
+    >
       <LinkIcon size={10} />
       {status.status}
     </a>

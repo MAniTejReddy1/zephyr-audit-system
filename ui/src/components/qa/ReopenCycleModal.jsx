@@ -34,10 +34,10 @@ const ReopenCycleModal = ({ cycleName, onConfirm, onCancel }) => {
           {error && <p className="qa-modal-error">{error}</p>}
         </div>
         <div className="qa-modal-actions">
-          <button className="qa-btn-secondary" onClick={onCancel}>
+          <button type="button" className="qa-btn-secondary" onClick={onCancel}>
             Cancel
           </button>
-          <button className="qa-btn-primary" onClick={handleConfirm}>
+          <button type="button" className="qa-btn-primary" onClick={handleConfirm}>
             Reopen Cycle
           </button>
         </div>

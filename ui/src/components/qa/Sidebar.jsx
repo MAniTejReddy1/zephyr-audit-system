@@ -1,174 +1,425 @@
-import React, { useMemo } from 'react';
-import { ListChecks, Plus, Calendar, User, GitBranch, Layers, LockOpen } from 'lucide-react'; // Import LockOpen icon
+import React, { useMemo, useState, useEffect } from 'react';
+import { ListChecks, Plus, ChevronDown, Search, X, Calendar, User, AlertCircle } from 'lucide-react';
 import './Sidebar.css';
 
-const CircularProgress = ({ percentage, size = 48, strokeWidth = 5 }) => {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const offset = circumference - (percentage / 100) * circumference;
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle
-        stroke="var(--border-light)"
-        fill="transparent"
-        strokeWidth={strokeWidth}
-        r={radius}
-        cx={size / 2}
-        cy={size / 2}
-      />
-      <circle
-        stroke="var(--brand-accent)"
-        fill="transparent"
-        strokeWidth={strokeWidth}
-        strokeDasharray={circumference + ' ' + circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        r={radius}
-        cx={size / 2}
-        cy={size / 2}
-        style={{
-          transition: 'stroke-dashoffset 0.5s ease-out',
-          transform: 'rotate(-90deg)',
-          transformOrigin: '50% 50%',
-        }}
-      />
-      <text
-        x="50%"
-        y="50%"
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fontSize="10px"
-        fontWeight="700"
-        fill="var(--text-primary)"
-      >
-        {percentage}%
-      </text>
-    </svg>
-  );
+const getInitials = (name) => {
+  if (!name) return '??';
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+const getDeadlineInfo = (deadlineStr) => {
+  if (!deadlineStr) return null;
+  const deadlineDate = new Date(deadlineStr);
+  const today = new Date();
+  // Clear times to compare dates
+  const dDate = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate());
+  const tDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const isOverdue = dDate < tDate;
+  
+  return {
+    text: deadlineDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    isOverdue
+  };
+};
 
-const Sidebar = ({ cycles, activeCycleId, setActiveCycleId, setIsImportModalOpen, activeCycle, overallCompletionPct, activeModuleFilter, setActiveModuleFilter, isAdmin, setShowReopenCycleModal }) => {
+const normalizeVerName = (v) => {
+  if (!v) return 'v1.0.0';
+  let cleaned = v.trim();
+  cleaned = cleaned.replace(/^v\.+/i, 'v');
+  if (cleaned.startsWith('V')) {
+    cleaned = 'v' + cleaned.slice(1);
+  }
+  return cleaned;
+};
 
-  const deadlineInfo = useMemo(() => {
-    if (!activeCycle || !activeCycle.deadline) return null;
-    const deadlineDate = new Date(activeCycle.deadline);
-    const now = new Date();
-    const diffTime = deadlineDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+const Sidebar = ({ cycles, activeSelection, setActiveSelection, setIsImportModalOpen, activeCycle }) => {
+  const [expandedFolders, setExpandedFolders] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'signed-off'
 
-    if (diffDays < 0) {
-      return { text: 'Overdue', color: 'var(--danger)' };
-    } else if (diffDays <= 1) {
-      return { text: 'Due Today', color: 'var(--danger)' };
-    } else if (diffDays <= 7) {
-      return { text: `${diffDays} days left`, color: 'var(--warning)' };
-    } else {
-      return { text: `${deadlineDate.toLocaleDateString()}`, color: 'var(--text-secondary)' };
+  // Auto-expand active cycle's folders on mount or change
+  useEffect(() => {
+    if (activeCycle) {
+      const rc = activeCycle.release_cycle || activeCycle.name || "General Release";
+      const ver = activeCycle.version || "v1.0.0";
+      setExpandedFolders(prev => {
+        const next = new Set(prev);
+        next.add(rc);
+        next.add(`${rc} / ${normalizeVerName(ver)}`);
+        return next;
+      });
     }
   }, [activeCycle]);
 
-  const modules = useMemo(() => {
-    if (!activeCycle || !activeCycle.items) return [];
-    const uniqueModules = new Set(activeCycle.items.map(item => item.test_case?.module).filter(Boolean));
-    return ['all', ...Array.from(uniqueModules).sort()];
-  }, [activeCycle]);
+  // Compute processed, filtered and grouped cycles
+  const groupedCycles = useMemo(() => {
+    const processed = cycles.map(c => {
+      let rc = c.release_cycle;
+      let ver = c.version;
+      let squad = c.squad;
+      
+      // Fallback parser for legacy database cycles
+      if (!rc || !ver || !squad) {
+        const parts = c.name.split('/');
+        if (parts.length >= 3) {
+          rc = rc || parts[0].trim();
+          ver = ver || parts[1].trim();
+          squad = squad || parts[2].trim();
+        } else {
+          rc = rc || c.name;
+          ver = ver || "v1.0.0";
+          squad = squad || "Core";
+        }
+      }
+      
+      const total = c.items?.length || 0;
+      const done = c.items ? c.items.filter(i => i.status !== 'pending').length : 0;
+      const fails = c.items ? c.items.filter(i => i.status === 'fail').length : 0;
+      const blocked = c.items ? c.items.filter(i => i.status === 'blocked').length : 0;
+      const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+      const isCompleted = pct === 100;
+      
+      return {
+        ...c,
+        rcName: rc,
+        verName: normalizeVerName(ver),
+        squadName: squad,
+        total,
+        done,
+        fails,
+        blocked,
+        pct,
+        isCompleted
+      };
+    });
+
+    // Apply filters
+    const filtered = processed.filter(c => {
+      // Status Filter
+      if (statusFilter === 'active' && c.status === 'Signed Off') return false;
+      if (statusFilter === 'signed-off' && c.status !== 'Signed Off') return false;
+      
+      // Search Query Filter
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        const matchesSquad = c.squadName.toLowerCase().includes(q);
+        const matchesRC = c.rcName.toLowerCase().includes(q);
+        const matchesVer = c.verName.toLowerCase().includes(q);
+        const matchesOwner = c.owner ? c.owner.toLowerCase().includes(q) : false;
+        const matchesBuild = c.build_version ? c.build_version.toLowerCase().includes(q) : false;
+        return matchesSquad || matchesRC || matchesVer || matchesOwner || matchesBuild;
+      }
+      
+      return true;
+    });
+
+    // Group cycles by RC and Version
+    const map = new Map();
+    filtered.forEach(c => {
+      if (!map.has(c.rcName)) {
+        map.set(c.rcName, new Map());
+      }
+      const rcMap = map.get(c.rcName);
+      if (!rcMap.has(c.verName)) {
+        rcMap.set(c.verName, []);
+      }
+      rcMap.get(c.verName).push(c);
+    });
+
+    // Helper to get maximum creation time of cycles in a versions map
+    const getRcMaxTime = (versionsMap) => {
+      let maxTime = 0;
+      versionsMap.forEach((squads) => {
+        squads.forEach(c => {
+          const t = c.created_at ? new Date(c.created_at).getTime() : (c.id || 0);
+          if (t > maxTime) maxTime = t;
+        });
+      });
+      return maxTime;
+    };
+
+    // Helper to get maximum creation time of cycles in a squads list
+    const getVerMaxTime = (squads) => {
+      let maxTime = 0;
+      squads.forEach(c => {
+        const t = c.created_at ? new Date(c.created_at).getTime() : (c.id || 0);
+        if (t > maxTime) maxTime = t;
+      });
+      return maxTime;
+    };
+
+    // Build structured output with aggregates
+    return Array.from(map.entries())
+      .sort((a, b) => getRcMaxTime(b[1]) - getRcMaxTime(a[1])) // Sort Release Cycles descending by latest cycle
+      .map(([rcName, versionsMap]) => {
+        const versions = Array.from(versionsMap.entries())
+          .sort((a, b) => getVerMaxTime(b[1]) - getVerMaxTime(a[1])) // Sort Versions descending by latest cycle
+          .map(([verName, squads]) => {
+            const sortedSquads = squads.sort((a, b) => a.squadName.localeCompare(b.squadName));
+            
+            // Calculate Version Level stats
+            const verTotal = sortedSquads.reduce((acc, s) => acc + s.total, 0);
+            const verDone = sortedSquads.reduce((acc, s) => acc + s.done, 0);
+            const verPct = verTotal === 0 ? 0 : Math.round((verDone / verTotal) * 100);
+            const verCompletedSquads = sortedSquads.filter(s => s.isCompleted).length;
+            const verTotalSquads = sortedSquads.length;
+            
+            return {
+              verName,
+              squads: sortedSquads,
+              total: verTotal,
+              done: verDone,
+              pct: verPct,
+              completedSquads: verCompletedSquads,
+              totalSquads: verTotalSquads
+            };
+          });
+
+        // Calculate Release Cycle Level stats
+        const rcTotal = versions.reduce((acc, v) => acc + v.total, 0);
+        const rcDone = versions.reduce((acc, v) => acc + v.done, 0);
+        const rcPct = rcTotal === 0 ? 0 : Math.round((rcDone / rcTotal) * 100);
+        const rcCompletedSquads = versions.reduce((acc, v) => acc + v.completedSquads, 0);
+        const rcTotalSquads = versions.reduce((acc, v) => acc + v.totalSquads, 0);
+
+        return {
+          rcName,
+          versions,
+          total: rcTotal,
+          done: rcDone,
+          pct: rcPct,
+          completedSquads: rcCompletedSquads,
+          totalSquads: rcTotalSquads
+        };
+      });
+  }, [cycles, searchQuery, statusFilter]);
+
+  // Auto-expand search matches
+  useEffect(() => {
+    if (searchQuery.trim() !== '') {
+      const next = new Set();
+      groupedCycles.forEach(({ rcName, versions }) => {
+        next.add(rcName);
+        versions.forEach(({ verName }) => {
+          next.add(`${rcName} / ${verName}`);
+        });
+      });
+      setExpandedFolders(next);
+    }
+  }, [searchQuery, groupedCycles]);
+
+  const toggleFolder = (folderKey) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderKey)) {
+        next.delete(folderKey);
+      } else {
+        next.add(folderKey);
+      }
+      return next;
+    });
+  };
 
   const isNewButtonDisabled = activeCycle?.is_locked;
 
   return (
     <div className="qa-sidebar">
       <div className="qa-sidebar-header">
-        <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Release Cycles</h2>
+        <h2 style={{ fontSize: 14, fontWeight: 750, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ListChecks size={18} color="var(--brand-accent)" />
+          <span>Release Portal</span>
+        </h2>
         <button 
           onClick={() => setIsImportModalOpen(true)} 
           className="qa-btn-secondary" 
-          style={{ padding: '6px 12px', fontSize: 12, display: 'flex', gap: 6 }}
+          style={{ padding: '6px 12px', fontSize: 11, display: 'flex', gap: 6, alignItems: 'center' }}
           disabled={isNewButtonDisabled}
         >
           <Plus size={14} /> New
         </button>
       </div>
-      
-      <div className="qa-cycle-list">
-        {activeCycle && (
-          <>
-            <div className="qa-release-summary-card">
-              <div className="qa-release-summary-header">
-                <h3 className="qa-release-summary-title">{activeCycle.name}</h3>
-                <CircularProgress percentage={overallCompletionPct} />
-              </div>
-              <div className="qa-release-summary-meta">
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
-                  <GitBranch size={14} /> {activeCycle.build_version || 'N/A'}
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
-                  <User size={14} /> {activeCycle.owner || 'N/A'}
-                </span>
-              </div>
-              {deadlineInfo && (
-                <div className="qa-release-summary-deadline" style={{ color: deadlineInfo.color }}>
-                  <Calendar size={14} /> {deadlineInfo.text}
-                </div>
-              )}
-              {activeCycle.is_locked && activeCycle.status === 'Signed Off' && isAdmin && (
-                <button 
-                  onClick={() => setShowReopenCycleModal(true)} 
-                  className="qa-btn-secondary qa-reopen-btn"
-                >
-                  <LockOpen size={14} /> Reopen Cycle
-                </button>
-              )}
-            </div>
 
-            <div className="qa-module-filter-section">
-              <div className="qa-module-filter-header">
-                <Layers size={16} />
-                <span>Modules</span>
-              </div>
-              <div className="qa-module-filter-list">
-                {modules.map(moduleName => (
-                  <button
-                    key={moduleName}
-                    className={`qa-module-filter-btn ${activeModuleFilter === moduleName ? 'active' : ''}`}
-                    onClick={() => setActiveModuleFilter(moduleName)}
-                  >
-                    {moduleName === 'all' ? 'All Modules' : moduleName}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
+      {/* Search & Filter Bar */}
+      <div className="qa-sidebar-controls">
+        <div className="qa-sidebar-search-box">
+          <Search size={14} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search cycle, squad, owner..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="qa-sidebar-search-input"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="search-clear-btn" aria-label="Clear search">
+              <X size={12} />
+            </button>
+          )}
+        </div>
 
-        {cycles.length === 0 ? (
+        <div className="qa-sidebar-tabs">
+          <button 
+            className={`qa-sidebar-tab ${statusFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('all')}
+          >
+            All
+          </button>
+          <button 
+            className={`qa-sidebar-tab ${statusFilter === 'active' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('active')}
+          >
+            Active
+          </button>
+          <button 
+            className={`qa-sidebar-tab ${statusFilter === 'signed-off' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('signed-off')}
+          >
+            Signed Off
+          </button>
+        </div>
+      </div>
+
+      {/* Cycle Tree */}
+      <div className="qa-cycle-tree-container thin-scrollbar">
+        {groupedCycles.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <ListChecks size={40} color="var(--border)" style={{marginBottom: 16}}/>
-            <div style={{color: 'var(--text-primary)', fontWeight: 600, marginBottom: 8}}>No Active Cycles</div>
-            <div style={{color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5}}>Create a new checklist to track QA execution progress.</div>
+            <ListChecks size={40} color="var(--border)" style={{marginBottom: 16, opacity: 0.5}}/>
+            <div style={{color: 'var(--text-primary)', fontWeight: 600, marginBottom: 8, fontSize: 13}}>No matching cycles</div>
+            <div style={{color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.5}}>Try refining your search query or filters.</div>
           </div>
         ) : (
-          cycles.map(cycle => {
-            const isActive = cycle.id === activeCycleId;
-            // Removed cStats and pct calculation as overallCompletionPct is passed for active cycle
-            
+          groupedCycles.map(({ rcName, versions, completedSquads, totalSquads, pct }) => {
+            const isRcExpanded = expandedFolders.has(rcName);
             return (
-              <div key={cycle.id} onClick={() => setActiveCycleId(cycle.id)} className={`qa-cycle-item ${isActive ? 'active' : ''}`}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: isActive ? 'var(--brand-accent)' : 'var(--text-primary)' }}>{cycle.name}</div>
-                  {/* For inactive cycles, we can show a simple completion or total items */}
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', backgroundColor: 'var(--border-light)', padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                    {cycle.items ? `${cycle.items.filter(i => i.status !== 'pending').length}/${cycle.items.length}` : '0/0'}
+              <div key={rcName} className="qa-tree-rc-node">
+                <div 
+                  className={`qa-tree-folder-header rc-level ${activeSelection?.type === 'release' && activeSelection?.name === rcName ? 'active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveSelection({ type: 'release', name: rcName });
+                    toggleFolder(rcName);
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                    <span className={`qa-tree-chevron ${isRcExpanded ? 'expanded' : ''}`}>
+                      <ChevronDown size={13} />
+                    </span>
+                    <span className="qa-tree-folder-name" title={rcName}>{rcName}</span>
+                  </div>
+                  <div className="qa-tree-folder-stats">
+                    <span className="squad-fraction" title="Completed Squads">{completedSquads}/{totalSquads} sq</span>
+                    <span className="percent-progress">{pct}%</span>
                   </div>
                 </div>
-                {/* Simple progress bar for inactive cycles */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ flex: 1, height: 6, backgroundColor: 'var(--border-light)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${cycle.items ? Math.round(cycle.items.filter(i => i.status === 'pass').length / cycle.items.length * 100) : 0}%`, backgroundColor: 'var(--success)', transition: 'width 0.5s ease-out' }} />
+
+                {isRcExpanded && (
+                  <div className="qa-tree-rc-children">
+                    {versions.map(({ verName, squads, completedSquads: vCompleted, totalSquads: vTotal, pct: vPct }) => {
+                      const verKey = `${rcName} / ${verName}`;
+                      const isVerExpanded = expandedFolders.has(verKey);
+                      return (
+                        <div key={verName} className="qa-tree-ver-node">
+                          <div 
+                            className={`qa-tree-folder-header ver-level ${activeSelection?.type === 'version' && activeSelection?.rcName === rcName && activeSelection?.verName === verName ? 'active' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveSelection({ type: 'version', rcName, verName });
+                              toggleFolder(verKey);
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+                              <span className={`qa-tree-chevron ${isVerExpanded ? 'expanded' : ''}`}>
+                                <ChevronDown size={13} />
+                              </span>
+                              <span className="qa-tree-folder-name" title={verName}>{verName}</span>
+                            </div>
+                            <div className="qa-tree-folder-stats">
+                              <span className="squad-fraction">{vCompleted}/{vTotal} sq</span>
+                              <span className="percent-progress">{vPct}%</span>
+                            </div>
+                          </div>
+
+                          {isVerExpanded && (
+                            <div className="qa-tree-ver-children">
+                              {squads.map(cycle => {
+                                const isSquadActive = activeSelection?.type === 'squad' && activeSelection?.id === cycle.id;
+                                const deadlineInfo = getDeadlineInfo(cycle.deadline);
+                                const statusDotClass = cycle.isCompleted 
+                                  ? 'status-dot completed' 
+                                  : cycle.pct > 0 
+                                    ? 'status-dot in-progress' 
+                                    : 'status-dot unstarted';
+                                
+                                return (
+                                  <div 
+                                    key={cycle.id}
+                                    onClick={() => setActiveSelection({ type: 'squad', id: cycle.id })}
+                                    className={`qa-tree-leaf squad-level ${isSquadActive ? 'active' : ''}`}
+                                  >
+                                    <div className="qa-tree-leaf-main">
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                                        <span className={statusDotClass} />
+                                        <span className="qa-tree-leaf-name" title={cycle.squadName}>{cycle.squadName}</span>
+                                      </div>
+                                      
+                                      {/* Issue counts & progress */}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                                        {(cycle.fails > 0 || cycle.blocked > 0) && (
+                                          <div style={{ display: 'flex', gap: 3 }}>
+                                            {cycle.fails > 0 && <span className="qa-leaf-issue-indicator fail">{cycle.fails}F</span>}
+                                            {cycle.blocked > 0 && <span className="qa-leaf-issue-indicator blocked">{cycle.blocked}B</span>}
+                                          </div>
+                                        )}
+                                        <span className={`qa-tree-progress-badge ${cycle.isCompleted ? 'completed' : ''}`}>
+                                          {cycle.isCompleted ? '✓ 100%' : `${cycle.pct}%`}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Squad rich metadata row */}
+                                    <div className="qa-tree-leaf-subinfo">
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                                        {cycle.owner && (
+                                          <span className="qa-leaf-owner-avatar" title={`Owner: ${cycle.owner}`}>
+                                            {getInitials(cycle.owner)}
+                                          </span>
+                                        )}
+                                        {cycle.build_version && (
+                                          <span className="qa-leaf-build-tag" title={`Build version: ${cycle.build_version}`}>
+                                            #{cycle.build_version.replace(/^(build|b)/i, '')}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {deadlineInfo && (
+                                        <span className={`qa-leaf-deadline-tag ${deadlineInfo.isOverdue ? 'overdue' : ''}`} title={deadlineInfo.isOverdue ? "Overdue deadline" : "Target deadline"}>
+                                          <Calendar size={10} />
+                                          {deadlineInfo.text}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Linear progress bar */}
+                                    <div className="qa-leaf-progress-bar-container">
+                                      <div 
+                                        className="qa-leaf-progress-bar-fill" 
+                                        style={{ 
+                                          width: `${cycle.pct}%`,
+                                          backgroundColor: cycle.isCompleted ? 'var(--success)' : 'var(--brand-accent)'
+                                        }} 
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <span style={{fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', width: 32, textAlign: 'right'}}>{cycle.items ? Math.round(cycle.items.filter(i => i.status === 'pass').length / cycle.items.length * 100) : 0}%</span>
-                </div>
+                )}
               </div>
             );
           })

@@ -42,7 +42,7 @@ function buildGS() {
     --grad-blue: ${t.gradBlue};
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:${T.bg};color:${T.text};font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5}
+  body{background:${T.bg};color:${T.text};font-family:'Outfit', 'Inter', -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5}
   ::-webkit-scrollbar{width:6px;height:6px}
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}

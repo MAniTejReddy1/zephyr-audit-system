@@ -10,7 +10,8 @@ from app.db.base import Base
 from app.services.coverage import ensure_calendar_week_opening_snapshot
 
 # Import Routers
-from app.api.routers import core, logs, testcases, sync, cycles, jira
+from app.api.routers import core, logs, testcases, sync, cycles, jira, transformer
+
 
 settings = get_settings()
 
@@ -20,11 +21,15 @@ async def lifespan(app: FastAPI):
     # Initialize DB schema and migrations
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(text("ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS poll_run_id UUID"))
-        await conn.execute(text("ALTER TABLE test_case_state ADD COLUMN IF NOT EXISTS tm4j_id INTEGER"))
-        await conn.execute(text("ALTER TABLE sync_run ADD COLUMN IF NOT EXISTS source VARCHAR NOT NULL DEFAULT 'manual'"))
-        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_audit_log_poll_run ON audit_log (poll_run_id)"))
-        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_test_case_state_tm4j_id ON test_case_state (tm4j_id)"))
+        
+        # Defensive raw SQL alterations for ReleaseCycle hierarchical fields
+        await conn.execute(text("ALTER TABLE release_cycles ADD COLUMN IF NOT EXISTS release_cycle VARCHAR;"))
+        await conn.execute(text("ALTER TABLE release_cycles ADD COLUMN IF NOT EXISTS version VARCHAR;"))
+        await conn.execute(text("ALTER TABLE release_cycles ADD COLUMN IF NOT EXISTS squad VARCHAR;"))
+        await conn.execute(text("ALTER TABLE release_cycles ADD COLUMN IF NOT EXISTS build_version VARCHAR;"))
+        await conn.execute(text("ALTER TABLE release_cycles ADD COLUMN IF NOT EXISTS owner VARCHAR;"))
+        await conn.execute(text("ALTER TABLE release_cycles ADD COLUMN IF NOT EXISTS deadline TIMESTAMP WITH TIME ZONE;"))
+
         await conn.execute(text("""
             CREATE OR REPLACE FUNCTION prevent_audit_log_mutation()
             RETURNS trigger AS $$
@@ -62,10 +67,25 @@ async def lifespan(app: FastAPI):
         """))
     
     async with AsyncSessionLocal() as startup_db:
+        from sqlalchemy import select
+        from app.db.models import TransformerConfig
+        
         await ensure_calendar_week_opening_snapshot(startup_db)
+        
+        # Seed default TransformerConfig if not present
+        config_result = await startup_db.execute(select(TransformerConfig).where(TransformerConfig.key == "default"))
+        if not config_result.scalar_one_or_none():
+            default_config = TransformerConfig(
+                key="default",
+                filler_verbs=["verify that", "check that", "ensure", "validate", "verify", "check", "to verify", "to check", "to ensure"],
+                generic_words=["web", "functional", "regression", "sanity", "test cases", "mobile", "android", "ios", "api", "integration"]
+            )
+            startup_db.add(default_config)
+            await startup_db.commit()
     
     yield
     await engine.dispose()
+
 
 
 app = FastAPI(title="Zephyr Audit API", lifespan=lifespan)
@@ -86,6 +106,8 @@ app.include_router(testcases.router)
 app.include_router(sync.router)
 app.include_router(cycles.router)
 app.include_router(jira.router)
+app.include_router(transformer.router)
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

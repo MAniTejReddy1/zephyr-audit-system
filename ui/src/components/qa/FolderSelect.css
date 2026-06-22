@@ -5,7 +5,8 @@
 
 .folder-select-display {
   width: 100%;
-  padding: 12px 16px;
+  padding: 8px 12px;
+  min-height: 42px;
   border-radius: 8px;
   font-size: 14px;
   background-color: var(--bg-alt);
@@ -14,12 +15,61 @@
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.folder-select-display span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.folder-select-display:hover {
+  border-color: var(--border-hover);
+}
+
+.folder-select-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 90%;
+  align-items: center;
+}
+
+.folder-select-placeholder {
+  color: var(--text-dim);
+}
+
+.folder-select-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--card-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.folder-select-tag:hover {
+  background-color: var(--danger-dim);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.folder-select-tag-close {
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.folder-select-tag:hover .folder-select-tag-close {
+  opacity: 1;
+}
+
+.folder-select-chevron {
+  color: var(--text-dim);
+  transition: transform 0.2s;
+}
+
+.folder-select-chevron.open {
+  transform: rotate(180deg);
 }
 
 .folder-select-dropdown {
@@ -27,35 +77,80 @@
   top: 100%;
   left: 0;
   right: 0;
-  z-index: 50;
-  margin-top: 4px;
+  z-index: 150;
+  margin-top: 6px;
   background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
-  max-height: 300px;
+  max-height: 340px;
+  animation: slideDown 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .folder-select-search {
   padding: 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-light);
 }
 
 .folder-select-search input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background-color: var(--bg-surface);
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 13px;
+  outline: none;
+}
+
+.folder-select-search input:focus {
+  border-color: var(--blue);
+}
+
+.folder-select-bulk-actions {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background-color: var(--bg-alt);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.folder-select-action-btn {
+  background: none;
+  border: none;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+}
+
+.folder-select-action-btn:hover {
+  background-color: var(--card-hover);
+}
+
+.folder-select-action-btn.clear {
+  color: var(--text-muted);
+}
+
+.folder-select-action-btn.clear:hover {
+  color: var(--red);
 }
 
 .folder-select-list {
   overflow-y: auto;
   flex: 1;
+}
+
+.folder-select-empty {
+  padding: 16px;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
 }
 
 .folder-select-item {
@@ -66,8 +161,43 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: background-color 0.15s;
 }
 
 .folder-select-item:hover {
   background-color: var(--card-hover);
+}
+
+.folder-select-item.selected {
+  background-color: var(--blueDim);
+}
+
+.folder-select-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.folder-select-item-checkbox {
+  display: flex;
+  align-items: center;
+  color: var(--text-dim);
+}
+
+.folder-select-item.selected .folder-select-item-checkbox {
+  color: var(--blue);
+}
+
+.folder-select-item-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.folder-select-item.selected .folder-select-item-path {
+  color: var(--blue);
+  font-weight: 500;
 }

@@ -22,10 +22,10 @@ async def get_jira_issue_status(issue_key: str):
             response = await client.get(url, auth=auth)
             response.raise_for_status()
             data = response.json()
-            return {"key": issue_key, "status": data['fields']['status']['name']}
+            return {"key": issue_key, "status": data['fields']['status']['name'], "url": f"{settings.jira_base_url}/browse/{issue_key}"}
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                return {"key": issue_key, "status": "Not Found"}
+                return {"key": issue_key, "status": "Not Found", "url": f"{settings.jira_base_url}/browse/{issue_key}" if settings.jira_base_url else None}
             raise HTTPException(status_code=e.response.status_code, detail=f"Jira API error: {e.response.text}")
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))

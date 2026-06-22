@@ -11,14 +11,15 @@ const ConfirmationModal = ({ title, message, confirmOptions, onConfirm, onCancel
           {confirmOptions.map(option => (
             <button
               key={option.value}
+              type="button"
               className="qa-btn-primary"
-              style={{ backgroundColor: option.color || 'var(--brand-accent)' }}
+              style={{ '--btn-bg': option.color || 'var(--brand-accent)' }}
               onClick={() => onConfirm(option.value)}
             >
               {option.label}
             </button>
           ))}
-          <button className="qa-btn-secondary" onClick={onCancel}>
+          <button type="button" className="qa-btn-secondary" onClick={onCancel}>
             Cancel
           </button>
         </div>

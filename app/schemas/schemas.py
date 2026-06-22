@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class StatsOut(BaseModel):
@@ -108,9 +108,19 @@ class ChecklistItemBase(BaseModel):
     status: str = 'pending'
     notes: Optional[str] = None
     bug_id: Optional[str] = None
+    platform: Optional[str] = None
+    assigned_to: Optional[str] = None
+    evidence: Optional[List[dict]] = None
+    parent_id: Optional[int] = None
 
 class ChecklistItemCreate(ChecklistItemBase):
-    pass
+    checklist_label: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    bug_id: Optional[str] = None
+    platform: Optional[str] = None
+    assigned_to: Optional[str] = None
+    evidence: Optional[List[dict]] = None
 
 class ChecklistItemOut(ChecklistItemBase):
     model_config = ConfigDict(from_attributes=True)
@@ -120,9 +130,45 @@ class ChecklistItemOut(ChecklistItemBase):
     history: Optional[List[dict]] = None
     test_case: Optional[TestCaseStateOut] = None
 
+class ChecklistItemListOut(ChecklistItemBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    release_cycle_id: int
+    test_case_id: UUID
+    history: Optional[List[dict]] = None
+    test_case: Optional[TestCaseStateOut] = None
+    
+    checklist_label: Optional[str] = None
+    module: Optional[str] = None
+    transform_version: int
+    label_overridden: bool
+    precondition_present: bool = False
+    verification_point_count: int = 0
+
+    @field_validator('transform_version', mode='before')
+    @classmethod
+    def transform_version_default(cls, v):
+        return v if v is not None else 0
+
+    @field_validator('label_overridden', mode='before')
+    @classmethod
+    def label_overridden_default(cls, v):
+        return v if v is not None else False
+
+
+class ChecklistItemDetailOut(ChecklistItemListOut):
+    verification_points: List[str] = []
+    precondition: Optional[str] = None
+
 class ReleaseCycleBase(BaseModel):
     name: str
     status: str = 'active'
+    release_cycle: Optional[str] = None
+    version: Optional[str] = None
+    squad: Optional[str] = None
+    build_version: Optional[str] = None
+    owner: Optional[str] = None
+    deadline: Optional[datetime] = None
 
 class ReleaseCycleCreate(ReleaseCycleBase):
     # Option to create a cycle with a predefined list of test case IDs
@@ -132,7 +178,8 @@ class ReleaseCycleOut(ReleaseCycleBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     created_at: datetime
-    items: List[ChecklistItemOut] = []
+    items: List[ChecklistItemListOut] = []
+
 
 
 class TestCaseFullOut(BaseModel):
@@ -164,4 +211,17 @@ class FolderWithCount(BaseModel):
     parent_id: int | None = None
     tribe: str | None = None
     test_case_count: int
+
+
+class TransformerConfigSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    key: str
+    filler_verbs: List[str]
+    generic_words: List[str]
+
+
+class TransformerConfigUpdate(BaseModel):
+    filler_verbs: Optional[List[str]] = None
+    generic_words: Optional[List[str]] = None
+
 

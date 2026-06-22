@@ -150,6 +150,14 @@ class ReleaseCycle(Base):
     status = Column(String, nullable=False, default='active')  # e.g., active, completed, archived
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Hierarchical and metadata columns
+    release_cycle = Column(String, nullable=True)
+    version = Column(String, nullable=True)
+    squad = Column(String, nullable=True)
+    build_version = Column(String, nullable=True)
+    owner = Column(String, nullable=True)
+    deadline = Column(DateTime(timezone=True), nullable=True)
+
     # Relationship to its items
     items = relationship("ChecklistItem", back_populates="cycle", cascade="all, delete-orphan")
 
@@ -163,7 +171,37 @@ class ChecklistItem(Base):
     notes = Column(Text)
     bug_id = Column(String)
     history = Column(JSON) # To store status change history
+    platform = Column(String)
+    assigned_to = Column(String)
+    evidence = Column(JSON)
+    parent_id = Column(Integer, ForeignKey('checklist_items.id'), nullable=True)
+
+    # Smart checklist transformer pre-computed columns
+    checklist_label = Column(String, index=True)
+    module = Column(String, default="Uncategorized", index=True)
+    verification_points = Column(JSONB, default=list)
+    precondition = Column(Text, nullable=True)
+    transform_version = Column(Integer, default=0)
+    label_overridden = Column(Boolean, default=False)
+
+    @property
+    def precondition_present(self) -> bool:
+        return bool(self.precondition)
+
+    @property
+    def verification_point_count(self) -> int:
+        return len(self.verification_points) if self.verification_points else 0
 
     # Relationships
     cycle = relationship("ReleaseCycle", back_populates="items")
+
     test_case = relationship("TestCaseState")
+
+
+class TransformerConfig(Base):
+    __tablename__ = 'transformer_config'
+
+    key = Column(String, primary_key=True, default="default")
+    filler_verbs = Column(JSONB, nullable=False, default=list)
+    generic_words = Column(JSONB, nullable=False, default=list)
+

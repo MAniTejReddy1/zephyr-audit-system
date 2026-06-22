@@ -54,13 +54,13 @@
 }
 
 .qa-modal-actions .qa-btn-primary {
-  /* Overridden by inline style for specific colors */
-  background-color: var(--brand-accent);
+  background-color: var(--btn-bg, var(--brand-accent));
   color: var(--surface);
+  border: none;
 }
 
 .qa-modal-actions .qa-btn-primary:hover {
-  background-color: color-mix(in srgb, var(--brand-accent) 90%, black);
+  background-color: color-mix(in srgb, var(--btn-bg, var(--brand-accent)) 85%, black);
 }
 
 .qa-modal-actions .qa-btn-secondary {
